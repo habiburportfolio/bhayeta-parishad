@@ -73,7 +73,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
           {org.addressBn}
         </p>
         <p className="text-[9px] sm:text-[10px] text-slate-700 font-sans font-medium">
-          {org.phones.join(', ')}
+          {Array.isArray(org?.phones) ? org.phones.join(', ') : ''}
         </p>
 
         {/* Center Pill: রশীদ বহি & Copy Type */}

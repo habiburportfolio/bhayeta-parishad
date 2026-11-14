@@ -82,8 +82,8 @@ export const AdminResetPasswordModal: React.FC<AdminResetPasswordModalProps> = (
     return `${maskedName}@${domain}`;
   };
 
-  const activeMobile = security.recoveryPhone || org.phones[0] || '০১৭১৬-৮৩৬৯২১';
-  const activeEmail = security.recoveryEmail || org.email || 'bhayetagjp@gmail.com';
+  const activeMobile = security?.recoveryPhone || (org?.phones && org.phones.length > 0 ? org.phones[0] : '০১৭১৬-৮৩৬৯২১');
+  const activeEmail = security?.recoveryEmail || org?.email || 'bhayetagjp@gmail.com';
 
   // Timer countdown
   useEffect(() => {

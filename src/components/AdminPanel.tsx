@@ -117,8 +117,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [copiedMasterKey, setCopiedMasterKey] = useState(false);
 
   // Recovery contacts editing
-  const [editRecoveryEmail, setEditRecoveryEmail] = useState(securityProfile.recoveryEmail || org.email);
-  const [editRecoveryPhone, setEditRecoveryPhone] = useState(securityProfile.recoveryPhone || org.phones[0]);
+  const fallbackPhone = (org?.phones && org.phones.length > 0) ? org.phones[0] : '০১৭১৬-৮৩৬৯২১';
+  const fallbackEmail = org?.email || 'bhayetagjp@gmail.com';
+  const [editRecoveryEmail, setEditRecoveryEmail] = useState(securityProfile?.recoveryEmail || fallbackEmail);
+  const [editRecoveryPhone, setEditRecoveryPhone] = useState(securityProfile?.recoveryPhone || fallbackPhone);
   const [recoveryContactsSavedMsg, setRecoveryContactsSavedMsg] = useState('');
 
   // Check lockout on mount
@@ -196,8 +198,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setPinErrorMsg('');
     try {
       const destination = changePinMethod === 'mobile' 
-        ? (securityProfile.recoveryPhone || org.phones[0]) 
-        : (securityProfile.recoveryEmail || org.email);
+        ? (securityProfile?.recoveryPhone || fallbackPhone) 
+        : (securityProfile?.recoveryEmail || fallbackEmail);
       const session = await generateSecurityOtp(changePinMethod, destination);
       setChangeOtpTimer(300);
       setChangeOtpNotice(
@@ -298,7 +300,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // Filtered members
-  const filteredMembers = members.filter((m) => {
+  const safeMemberList = Array.isArray(members) ? members.filter(Boolean) : [];
+  const filteredMembers = safeMemberList.filter((m) => {
+    if (!m) return false;
     const matchesQuery = 
       m.fullNameBn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.fullNameEn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -310,13 +314,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const matchesStatus = 
       statusFilter === 'all' ? true : m.status === statusFilter;
 
-    return matchesQuery && matchesStatus;
+    return Boolean(matchesQuery && matchesStatus);
   });
 
   // KPI counts
-  const approvedMembersCount = members.filter((m) => m.status === 'approved').length;
-  const pendingMembersCount = members.filter((m) => m.status === 'pending').length;
-  const totalCollections = receipts.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const approvedMembersCount = safeMemberList.filter((m) => m?.status === 'approved').length;
+  const pendingMembersCount = safeMemberList.filter((m) => m?.status === 'pending').length;
+  const safeReceipts = Array.isArray(receipts) ? receipts.filter(Boolean) : [];
+  const totalCollections = safeReceipts.reduce((sum, r) => sum + (Number(r?.amount) || 0), 0);
 
   // If locked, render PIN screen
   if (!isUnlocked) {

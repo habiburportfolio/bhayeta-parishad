@@ -483,7 +483,7 @@ export const AdmissionFormPrintView: React.FC<AdmissionFormPrintViewProps> = ({
           {org.addressBn}
         </div>
         <div className="font-medium font-sans mt-0.5 print:mt-0.5">
-          মোবাইল: {org.phones.join(', ')} | e-mail: {org.email}
+          মোবাইল: {Array.isArray(org?.phones) ? org.phones.join(', ') : ''} | e-mail: {org?.email || ''}
         </div>
       </div>
 

@@ -437,11 +437,29 @@ export const getAdminSecurity = (): AdminSecurityProfile => {
     const raw = localStorage.getItem(SECURITY_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (!parsed.masterRecoveryKey) {
-        parsed.masterRecoveryKey = generateMasterKey();
-        saveAdminSecurity(parsed);
+      if (parsed && typeof parsed === 'object') {
+        let changed = false;
+        if (!parsed.masterRecoveryKey) {
+          parsed.masterRecoveryKey = generateMasterKey();
+          changed = true;
+        }
+        if (!parsed.recoveryEmail) {
+          parsed.recoveryEmail = DEFAULT_ORG_PROFILE.email;
+          changed = true;
+        }
+        if (!parsed.recoveryPhone) {
+          parsed.recoveryPhone = DEFAULT_ORG_PROFILE.phones[0];
+          changed = true;
+        }
+        if (!parsed.pin) {
+          parsed.pin = localStorage.getItem(PIN_STORAGE_KEY) || '1234';
+          changed = true;
+        }
+        if (changed) {
+          saveAdminSecurity(parsed);
+        }
+        return parsed as AdminSecurityProfile;
       }
-      return parsed;
     }
   } catch (e) {
     console.error('Failed to parse admin security', e);

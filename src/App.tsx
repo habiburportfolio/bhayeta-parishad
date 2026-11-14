@@ -44,6 +44,7 @@ import { ReceiptBook } from './components/ReceiptBook';
 import { PadKhata } from './components/PadKhata';
 import { AdminPanel } from './components/AdminPanel';
 import { OrgSettingsModal } from './components/OrgSettingsModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { triggerPrint } from './utils/exportTools';
 
 export default function App() {
@@ -231,6 +232,7 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1 pb-16 print:p-0 print:m-0 print:pb-0 print:flex-none">
+        <ErrorBoundary fallbackTitle="প্যানেল লোড করতে সমস্যা হয়েছে" onReset={() => setCurrentTab('form')}>
         {currentTab === 'form' && (
           <FormAdmission
             org={org}
@@ -325,6 +327,7 @@ export default function App() {
             }}
           />
         )}
+        </ErrorBoundary>
       </main>
 
       {/* Organization Settings Modal */}
@@ -343,7 +346,7 @@ export default function App() {
             {lang === 'bn' ? org.nameBn : org.nameEn}
           </p>
           <p className="text-[11px] text-slate-500">
-            {lang === 'bn' ? org.addressBn : org.addressEn} | মোবাইল: {org.phones.join(', ')}
+            {lang === 'bn' ? org.addressBn : org.addressEn} | মোবাইল: {Array.isArray(org?.phones) ? org.phones.join(', ') : ''}
           </p>
           <p className="text-[10px] text-slate-400 pt-2">
             © {new Date().getFullYear()} ভায়েটা আদর্শ গ্রাম জনকল্যাণ পরিষদ · ডিজিটাল সদস্য ভর্তি ফরম, রশিদ ও প্যাড সিস্টেম

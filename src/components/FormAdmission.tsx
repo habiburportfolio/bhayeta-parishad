@@ -20,10 +20,11 @@ import { exportMemberToDoc, triggerPrint } from '../utils/exportTools';
 import { fetchCloudMembers } from '../utils/storage';
 
 export const getNextFormNo = (list?: MemberApplication[]): string => {
-  if (!list || list.length === 0) return '0001';
+  if (!list || !Array.isArray(list) || list.length === 0) return '0001';
   const nums = list
+    .filter(Boolean)
     .map((m) => {
-      const en = toEnglishDigits(m.formNo || '');
+      const en = toEnglishDigits(m?.formNo || '');
       const parsed = parseInt(en.replace(/\D/g, ''), 10);
       return parsed;
     })
@@ -230,24 +231,24 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   // Division & District cascades for present address
   const currentPresentDivision = BANGLADESH_DIVISIONS.find(
-    (d) => d.nameEn === formData.presentAddress.division || d.nameBn === formData.presentAddress.division
+    (d) => d.nameEn === formData?.presentAddress?.division || d.nameBn === formData?.presentAddress?.division
   ) || BANGLADESH_DIVISIONS[0];
 
   const currentPresentDistricts = currentPresentDivision?.districts || [];
   const currentPresentDistrict = currentPresentDistricts.find(
-    (d) => d.nameEn === formData.presentAddress.district || d.nameBn === formData.presentAddress.district
+    (d) => d.nameEn === formData?.presentAddress?.district || d.nameBn === formData?.presentAddress?.district
   ) || currentPresentDistricts[0];
 
   const currentPresentUpazilas = currentPresentDistrict?.upazilas || [];
 
   // Permanent address cascades
   const currentPermDivision = BANGLADESH_DIVISIONS.find(
-    (d) => d.nameEn === formData.permanentAddress.division || d.nameBn === formData.permanentAddress.division
+    (d) => d.nameEn === formData?.permanentAddress?.division || d.nameBn === formData?.permanentAddress?.division
   ) || BANGLADESH_DIVISIONS[0];
 
   const currentPermDistricts = currentPermDivision?.districts || [];
   const currentPermDistrict = currentPermDistricts.find(
-    (d) => d.nameEn === formData.permanentAddress.district || d.nameBn === formData.permanentAddress.district
+    (d) => d.nameEn === formData?.permanentAddress?.district || d.nameBn === formData?.permanentAddress?.district
   ) || currentPermDistricts[0];
 
   const currentPermUpazilas = currentPermDistrict?.upazilas || [];
@@ -453,7 +454,8 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
         </div>
       ) : (
         /* Interactive Input Wizard Mode */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-8">
+        <>
+          <div className="no-print bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-8">
           
           {/* Header Info & Photo Upload Row */}
           <div className="flex flex-col md:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-200">
@@ -1165,7 +1167,18 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
             </div>
           </div>
 
-        </div>
+          </div>
+
+          {/* Printable Admission Form View (Hidden on screen, prints cleanly when quick print is triggered) */}
+          <div className="hidden print:block print:w-full print:m-0 print:p-0">
+            <AdmissionFormPrintView
+              member={formData}
+              org={org}
+              lang={lang}
+              isBlank={false}
+            />
+          </div>
+        </>
       )}
 
       {/* Real-time Submission Success & Final Form No Modal */}

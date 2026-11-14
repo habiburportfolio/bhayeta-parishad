@@ -129,7 +129,7 @@ export const exportMemberToDoc = (member: MemberApplication, org: OrganizationPr
         <div class="bismillah">বিস্মিহী তা'আলা</div>
         <div class="title">${escapeHtml(org.nameBn)}</div>
         <div class="subtitle">${escapeHtml(org.nameEn)}</div>
-        <div class="info">${escapeHtml(org.establishedBn)} | ${escapeHtml(org.addressBn)} | মোবাইল: ${escapeHtml(org.phones.join(', '))}</div>
+        <div class="info">${escapeHtml(org.establishedBn)} | ${escapeHtml(org.addressBn)} | মোবাইল: ${escapeHtml(Array.isArray(org?.phones) ? org.phones.join(', ') : '')}</div>
         <h2 style="color: #006837; margin-top: 10px;">${isBn ? 'সদস্য ভর্তি আবেদন ফরম' : 'Member Admission Application Form'}</h2>
         <p><strong>${isBn ? 'অনলাইন ফরম নং' : 'Online Form No'}:</strong> ${escapeHtml(member.formNo)} | <strong>${isBn ? 'তারিখ' : 'Date'}:</strong> ${escapeHtml(member.date)}</p>
       </div>
@@ -235,7 +235,7 @@ export const exportPadDocumentToDoc = (title: string, date: string, memoNo: stri
       <div class="content">${escapeHtml(content)}</div>
       <div class="footer">
         ${escapeHtml(org.addressBn)}<br>
-        মোবাইল: ${escapeHtml(org.phones.join(', '))} | ই-মেইল: ${escapeHtml(org.email)}
+        মোবাইল: ${escapeHtml(Array.isArray(org?.phones) ? org.phones.join(', ') : '')} | ই-মেইল: ${escapeHtml(org.email)}
       </div>
     </body>
     </html>

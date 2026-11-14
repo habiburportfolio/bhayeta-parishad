@@ -22,13 +22,13 @@ export const OrgSettingsModal: React.FC<OrgSettingsModalProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<OrganizationProfile>({ ...org });
-  const [phonesStr, setPhonesStr] = useState(org.phones.join(', '));
+  const [phonesStr, setPhonesStr] = useState(Array.isArray(org?.phones) ? org.phones.join(', ') : '');
   const [savedMsg, setSavedMsg] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setFormData({ ...org });
-      setPhonesStr(org.phones.join(', '));
+      setPhonesStr(Array.isArray(org?.phones) ? org.phones.join(', ') : '');
     }
   }, [isOpen, org]);
 
