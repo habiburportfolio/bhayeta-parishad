@@ -74,7 +74,7 @@ export default function App() {
   };
 
   // Member handlers
-  const handleSaveMember = (newMember: MemberApplication) => {
+  const handleSaveMember = async (newMember: MemberApplication) => {
     const existingIndex = members.findIndex((m) => m.id === newMember.id);
     let updated: MemberApplication[];
     if (existingIndex >= 0) {
@@ -85,7 +85,7 @@ export default function App() {
     }
     setMembers(updated);
     saveMembers(updated);
-    syncMemberToCloud(newMember);
+    await syncMemberToCloud(newMember);
   };
 
   const handleUpdateMember = (updatedMember: MemberApplication) => {

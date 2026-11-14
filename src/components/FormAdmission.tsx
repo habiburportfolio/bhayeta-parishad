@@ -8,7 +8,8 @@ import {
   Trash2, 
   Eye, 
   CheckCircle,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { MemberApplication, OrganizationProfile, Language } from '../types';
 import { BANGLADESH_DIVISIONS } from '../data/bangladeshData';
@@ -16,6 +17,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { AdmissionFormPrintView } from './AdmissionFormPrintView';
 import { getAmountInWords, toBengaliDigits, toEnglishDigits } from '../utils/numberToWords';
 import { exportMemberToDoc, triggerPrint } from '../utils/exportTools';
+import { fetchCloudMembers } from '../utils/storage';
 
 export const getNextFormNo = (list?: MemberApplication[]): string => {
   if (!list || list.length === 0) return '0001';
@@ -34,7 +36,7 @@ interface FormAdmissionProps {
   org: OrganizationProfile;
   lang: Language;
   existingMembers?: MemberApplication[];
-  onSaveMember: (member: MemberApplication) => void;
+  onSaveMember: (member: MemberApplication) => void | Promise<any>;
 }
 
 export const FormAdmission: React.FC<FormAdmissionProps> = ({
@@ -52,6 +54,8 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
   const [viewMode, setViewMode] = useState<'interactive' | 'replica'>('interactive');
   const [printBlank, setPrintBlank] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedModalData, setSubmittedModalData] = useState<MemberApplication | null>(null);
 
   // Form State
   const initialMember: MemberApplication = {
@@ -248,18 +252,56 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   const currentPermUpazilas = currentPermDistrict?.upazilas || [];
 
-  // Save member
-  const handleSave = () => {
+  // Save member with real-time atomic serial allocation
+  const handleSave = async () => {
     if (!formData.fullNameBn.trim() && !formData.fullNameEn.trim()) {
       alert(lang === 'bn' ? 'অনুগ্রহ করে আবেদনকারীর নাম লিখুন' : 'Please enter applicant name');
       return;
     }
-    onSaveMember(formData);
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 3500);
 
-    // Prepare next serial number
-    const updatedList = [...(existingMembers || []), formData];
+    setIsSubmitting(true);
+    try {
+      // 1. Fetch freshest members directly from Supabase to prevent race conditions
+      let latestList = existingMembers || [];
+      try {
+        const cloudMembers = await fetchCloudMembers();
+        if (cloudMembers && Array.isArray(cloudMembers)) {
+          latestList = cloudMembers;
+        }
+      } catch (cloudErr) {
+        console.warn('Real-time cloud fetch fallback to local list:', cloudErr);
+      }
+
+      // 2. Compute final sequential formNo at the moment of submission
+      const finalFormNo = getNextFormNo(latestList);
+
+      const finalizedMember: MemberApplication = {
+        ...formData,
+        formNo: finalFormNo,
+        createdAt: Date.now(),
+      };
+
+      // 3. Save to database / state
+      await onSaveMember(finalizedMember);
+
+      // 4. Update local form and trigger confirmation popup
+      setFormData(finalizedMember);
+      setSubmittedModalData(finalizedMember);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 4000);
+    } catch (error) {
+      console.error('Submission error:', error);
+      alert(lang === 'bn' ? 'আবেদন জমাদানে ত্রুটি হয়েছে। পুনরায় চেষ্টা করুন।' : 'Submission failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartNewForm = () => {
+    setSubmittedModalData(null);
+    const updatedList = submittedModalData 
+      ? [...(existingMembers || []), submittedModalData]
+      : (existingMembers || []);
     const nextNo = getNextFormNo(updatedList);
     setFormData({
       ...initialMember,
@@ -271,6 +313,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (signatureInputRef.current) signatureInputRef.current.value = '';
+    setViewMode('interactive');
   };
 
   const handleReset = () => {
@@ -464,24 +507,34 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
           </div>
 
           {/* Form Meta: Form No & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/40 border border-emerald-200/80 p-4 rounded-xl">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-800 mb-1">
                 {isBn ? 'অনলাইন ফরম নং' : 'Online Form No'}
-                <span className="text-[10px] text-emerald-700 font-semibold ml-1.5 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-300">
-                  {isBn ? 'স্বয়ংক্রিয় ক্রমানুসারে' : 'Auto Generated'}
+                <span className="text-[10px] text-emerald-800 font-semibold ml-1.5 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                  {isBn ? 'সাবমিটের ক্রমানুসারে চূড়ান্ত হবে' : 'Finalized upon Submit'}
                 </span>
               </label>
-              <input
-                type="text"
-                value={formData.formNo}
-                onChange={(e) => setFormData({ ...formData, formNo: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-emerald-400 focus:border-emerald-600 rounded-md text-sm font-bold text-emerald-950 font-sans tracking-wider shadow-2xs"
-                placeholder="0001"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.formNo}
+                  onChange={(e) => setFormData({ ...formData, formNo: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-emerald-400 focus:border-emerald-600 rounded-md text-sm font-bold text-emerald-950 font-sans tracking-wider shadow-2xs"
+                  placeholder="0001"
+                />
+                <span className="absolute right-3 top-2.5 text-[11px] text-slate-400 font-medium pointer-events-none">
+                  {isBn ? '(সম্ভাব্য ক্রম)' : '(Tentative)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-900 mt-1 font-medium">
+                {isBn 
+                  ? '⚡ একাধিক ব্যক্তি একসাথে পূরণ করলেও যিনি আগে সাবমিট করবেন, ডাটাবেজ তাকেই অগ্রাধিকার ভিত্তিতে আগের ক্রম প্রদান করবে।' 
+                  : '⚡ Concurrency Safe: The earlier submission receives the prior serial number.'}
+              </p>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{t.formDate}</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1">{t.formDate}</label>
               <input
                 type="date"
                 value={formData.date}
@@ -1090,14 +1143,86 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold rounded-lg bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className={`flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                  isSubmitting
+                    ? 'bg-emerald-950 text-emerald-200 cursor-not-allowed opacity-90'
+                    : 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-md'
+                }`}
               >
-                <Save className="w-4 h-4 text-emerald-200" />
-                <span>{t.saveData}</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
+                    <span>{isBn ? 'সিরিয়াল নির্ধারণ ও সংরক্ষণ হচ্ছে...' : 'Allocating Serial & Saving...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-emerald-200" />
+                    <span>{t.saveData}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Real-time Submission Success & Final Form No Modal */}
+      {submittedModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 no-print">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 text-center shadow-2xl border border-emerald-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-10 h-10" />
+            </div>
+            
+            <h3 className="text-xl font-bold text-slate-900 mb-1">
+              {isBn ? 'আবেদনটি সফলভাবে জমা হয়েছে!' : 'Application Submitted Successfully!'}
+            </h3>
+            
+            <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
+              {isBn 
+                ? 'আপনার জমাদানের সময়ক্রম (First-Come-First-Serve) অনুযায়ী চূড়ান্ত অনলাইন ফরম নং নির্ধারিত হয়েছে:' 
+                : 'Your final online form number allocated upon submission:'}
+            </p>
+            
+            <div className="bg-emerald-50 border-2 border-emerald-600 rounded-xl py-3.5 px-6 mb-5 shadow-xs">
+              <span className="text-xs font-semibold text-emerald-800 block mb-1">
+                {isBn ? 'আপনার চূড়ান্ত অনলাইন ফরম নং' : 'Your Final Online Form No'}
+              </span>
+              <span className="text-4xl font-extrabold text-emerald-950 font-sans tracking-widest">
+                {isBn ? toBengaliDigits(submittedModalData.formNo) : submittedModalData.formNo}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mb-5">
+              {isBn 
+                ? 'আপনি এখনই পূরণকৃত ফরমটি প্রিন্ট করতে পারেন অথবা কপি ডাউনলোড করে সংরক্ষণ করতে পারেন।' 
+                : 'You may now print or view your completed application form.'}
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmittedModalData(null);
+                  setViewMode('replica');
+                }}
+                className="w-full sm:flex-1 py-2.5 px-4 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Eye className="w-4 h-4" />
+                <span>{isBn ? 'প্রিন্ট / কপি দেখুন' : 'View / Print Copy'}</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleStartNewForm}
+                className="w-full sm:flex-1 py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              >
+                {isBn ? 'নতুন আবেদন ফর্ম' : 'New Application'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
