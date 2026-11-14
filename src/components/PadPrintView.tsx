@@ -25,9 +25,9 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
 
   return (
     <div className="pad-print-document bg-white text-slate-900 mx-auto w-full max-w-[800px] min-h-[1050px] p-6 sm:p-10 border border-slate-300 shadow-sm relative flex flex-col justify-between font-serif select-text print:border-none print:shadow-none print:p-0 print:m-0 print:min-h-screen">
-      
+
       {/* Background Central Seal Watermark */}
-      <div 
+      <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] select-none z-0"
         aria-hidden="true"
       >
@@ -109,7 +109,7 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
                 {isBn ? `বিষয়: ${subject}` : `Subject: ${subject}`}
               </div>
             )}
-            
+
             <div className="whitespace-pre-wrap text-justify min-h-[350px]">
               {content}
             </div>
@@ -141,8 +141,8 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
         {/* Alternating Green & Blue Colored Block Ribbon */}
         <div className="w-full h-3 mt-2 flex">
           {Array.from({ length: 14 }).map((_, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className={`flex-1 h-full ${idx % 2 === 0 ? 'bg-[#006837]' : 'bg-[#1a365d]'}`}
             />
           ))}

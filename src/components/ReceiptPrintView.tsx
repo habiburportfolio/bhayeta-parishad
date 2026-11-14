@@ -23,12 +23,11 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
 
   // Sub-component for an individual slip (Left Stub or Right Customer slip)
   const ReceiptSlip = ({ isStub = false }: { isStub?: boolean }) => (
-    <div className={`relative bg-white border border-slate-400 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-2xs font-serif ${
-      isStub ? 'w-full md:w-[38%] print:w-[38%]' : 'w-full md:w-[62%] print:w-[62%]'
-    }`}>
-      
+    <div className={`relative bg-white border border-slate-400 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-2xs font-serif ${isStub ? 'w-full md:w-[38%] print:w-[38%]' : 'w-full md:w-[62%] print:w-[62%]'
+      }`}>
+
       {/* Background Watermark */}
-      <div 
+      <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] select-none z-0"
         aria-hidden="true"
       >
@@ -175,7 +174,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
 
   return (
     <div className="receipt-print-wrapper bg-white mx-auto w-full max-w-[960px] p-4 sm:p-6 border border-slate-300 shadow-sm print:border-none print:shadow-none print:p-0 print:m-0">
-      
+
       {/* Side-by-side Layout with Stub on Left and Main Customer Slip on Right */}
       <div className="flex flex-col md:flex-row print:!flex-row gap-4 print:gap-2 items-stretch justify-between relative">
         {/* Stub Slip (Office Copy) */}
