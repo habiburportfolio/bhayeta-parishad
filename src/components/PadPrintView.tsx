@@ -92,7 +92,7 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
           </div>
 
           <div>
-            <span>তারিখ ঃ </span>
+            <span>তারিখ : </span>
             <span className="border-b border-dotted border-slate-700 px-2 min-w-[120px] inline-block text-center font-sans">
               {isBlank ? '' : (isBn ? toBengaliDigits(date) : date)}
             </span>
@@ -106,7 +106,7 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
           <>
             {subject && (
               <div className="font-bold text-base sm:text-lg mb-4 text-slate-950 underline decoration-slate-400 underline-offset-4">
-                {isBn ? `বিষয়ঃ ${subject}` : `Subject: ${subject}`}
+                {isBn ? `বিষয়: ${subject}` : `Subject: ${subject}`}
               </div>
             )}
             
@@ -135,7 +135,7 @@ export const PadPrintView: React.FC<PadPrintViewProps> = ({
           {isBn ? org.addressBn : org.addressEn}
         </div>
         <div className="font-medium font-sans mt-0.5">
-          মোবাইল ঃ {org.phones.join(', ')} | e-mail: {org.email}
+          মোবাইল: {org.phones.join(', ')} | e-mail: {org.email}
         </div>
 
         {/* Alternating Green & Blue Colored Block Ribbon */}

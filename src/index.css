@@ -62,7 +62,12 @@
   }
 
   @page {
-    margin: 6mm;
-    size: auto;
+    margin: 5mm;
+    size: A4 portrait;
+  }
+
+  .admission-print-document {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }

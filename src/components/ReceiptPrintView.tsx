@@ -97,7 +97,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
           </div>
 
           <div>
-            <span>তারিখ ঃ </span>
+            <span>তারিখ : </span>
             <span className="border-b border-dotted border-slate-700 px-1 min-w-[90px] inline-block text-center font-sans">
               {isBlank ? '' : (isBn ? toBengaliDigits(receipt.date) : receipt.date)}
             </span>
@@ -110,7 +110,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
         {/* Name */}
         <div className="flex items-baseline gap-1">
           <span className="font-semibold shrink-0">নাম</span>
-          <span className="shrink-0 font-bold">ঃ</span>
+          <span className="shrink-0 font-bold">:</span>
           <div className="flex-1 border-b border-dotted border-slate-700 px-2 min-h-[22px] font-bold">
             {val(receipt.payerName)}
           </div>
@@ -119,7 +119,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
         {/* Address */}
         <div className="flex items-baseline gap-1">
           <span className="font-semibold shrink-0">ঠিকানা</span>
-          <span className="shrink-0 font-bold">ঃ</span>
+          <span className="shrink-0 font-bold">:</span>
           <div className="flex-1 border-b border-dotted border-slate-700 px-2 min-h-[22px]">
             {val(receipt.address)}
           </div>
@@ -128,7 +128,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
         {/* Amount */}
         <div className="flex items-baseline gap-1">
           <span className="font-semibold shrink-0">টাকার পরিমাণ</span>
-          <span className="shrink-0 font-bold">ঃ</span>
+          <span className="shrink-0 font-bold">:</span>
           <div className="flex-1 border-b border-dotted border-slate-700 px-2 min-h-[22px] font-sans font-bold text-slate-900">
             {formatAmt(receipt.amount)}
           </div>
@@ -137,7 +137,7 @@ export const ReceiptPrintView: React.FC<ReceiptPrintViewProps> = ({
         {/* In Words */}
         <div className="flex items-baseline gap-1">
           <span className="font-semibold shrink-0">কথায়</span>
-          <span className="shrink-0 font-bold">ঃ</span>
+          <span className="shrink-0 font-bold">:</span>
           <div className="flex-1 border-b border-dotted border-slate-700 px-2 min-h-[22px] font-medium text-slate-800">
             {val(isBn ? receipt.amountInWordsBn : receipt.amountInWordsEn)}
           </div>
