@@ -26,12 +26,27 @@
 }
 
 /* Print specific styles */
+@page {
+  size: A4 portrait;
+  margin: 6mm 8mm;
+}
+
 @media print {
-  body {
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #root, #root > div, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   .no-print {
@@ -45,6 +60,7 @@
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    overflow: visible !important;
   }
 
   .page-break-before {
@@ -61,13 +77,15 @@
     print-color-adjust: exact !important;
   }
 
-  @page {
-    margin: 5mm;
-    size: A4 portrait;
-  }
-
   .admission-print-document {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 268mm !important;
+    overflow: hidden !important;
     page-break-inside: avoid !important;
+    page-break-after: avoid !important;
     break-inside: avoid !important;
+    break-after: avoid !important;
   }
 }

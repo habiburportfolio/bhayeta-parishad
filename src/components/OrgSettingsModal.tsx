@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Save, RotateCcw, Upload, Trash2, CheckCircle } from 'lucide-react';
 import { OrganizationProfile, Language } from '../types';
-import { DEFAULT_ORG_PROFILE } from '../utils/storage';
+import { DEFAULT_ORG_PROFILE, DEFAULT_DECLARATION_BN } from '../utils/storage';
 
 interface OrgSettingsModalProps {
   isOpen: boolean;
@@ -251,6 +251,34 @@ export const OrgSettingsModal: React.FC<OrgSettingsModalProps> = ({
             <span className="text-xs font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-300 shrink-0 ml-2">
               {isBn ? 'সক্রিয়' : 'Active'}
             </span>
+          </div>
+
+          {/* Declaration / অঙ্গীকারনামা Edit Section */}
+          <div className="pt-4 border-t border-slate-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-800">
+                {isBn ? 'ভর্তি ফরমের অঙ্গীকারনামা (Declaration Text)' : 'Admission Form Declaration'}
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, declarationBn: DEFAULT_DECLARATION_BN })}
+                className="text-[11px] text-emerald-700 hover:text-emerald-800 underline font-medium cursor-pointer"
+              >
+                {isBn ? 'ডিফল্ট অঙ্গীকারনামা আনুন' : 'Load Default'}
+              </button>
+            </div>
+            <textarea
+              value={formData.declarationBn || DEFAULT_DECLARATION_BN}
+              onChange={(e) => setFormData({ ...formData, declarationBn: e.target.value })}
+              rows={3}
+              placeholder="অঙ্গীকারনামার বক্তব্য লিখুন..."
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm leading-relaxed"
+            />
+            <p className="text-[10px] text-slate-500">
+              {isBn 
+                ? '* এখানে যে অঙ্গীকারনামা লিখবেন তা স্বয়ংক্রিয়ভাবে ভর্তি ফরম এবং প্রিন্ট কপিতে প্রদর্শিত হবে।' 
+                : '* This declaration text will automatically be used in admission forms and print views.'}
+            </p>
           </div>
 
           {/* Toast */}

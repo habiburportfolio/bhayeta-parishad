@@ -211,7 +211,7 @@ export default function App() {
   }, [lang, org.nameBn, org.nameEn]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-serif selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-serif selection:bg-emerald-100 selection:text-emerald-900 print:min-h-0 print:bg-white print:p-0 print:m-0">
       
       {/* Top Navbar with 1-Click Language Toggle */}
       <Navbar
@@ -230,7 +230,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pb-16 print:p-0 print:m-0 print:pb-0 print:flex-none">
         {currentTab === 'form' && (
           <FormAdmission
             org={org}
@@ -261,6 +261,7 @@ export default function App() {
               onDeleteReceipt={handleDeleteReceipt}
               onReloadAllData={reloadAllData}
               onUpdateAdminPin={handleUpdateAdminPin}
+              onOpenSettings={() => setIsSettingsOpen(true)}
               isUnlocked={false}
               onUnlock={() => setIsAdminUnlocked(true)}
               onLock={() => {
@@ -292,6 +293,7 @@ export default function App() {
               onDeleteReceipt={handleDeleteReceipt}
               onReloadAllData={reloadAllData}
               onUpdateAdminPin={handleUpdateAdminPin}
+              onOpenSettings={() => setIsSettingsOpen(true)}
               isUnlocked={false}
               onUnlock={() => setIsAdminUnlocked(true)}
               onLock={() => {
@@ -314,6 +316,7 @@ export default function App() {
             onDeleteReceipt={handleDeleteReceipt}
             onReloadAllData={reloadAllData}
             onUpdateAdminPin={handleUpdateAdminPin}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             isUnlocked={isAdminUnlocked}
             onUnlock={() => setIsAdminUnlocked(true)}
             onLock={() => {

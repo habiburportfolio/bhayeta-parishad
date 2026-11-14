@@ -342,7 +342,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 print:p-0 print:m-0 print:max-w-none">
       
       {/* Top Controls Bar */}
       <div className="no-print bg-white p-4 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -425,7 +425,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
       {/* Main Content Area */}
       {viewMode === 'replica' ? (
-        <div className="space-y-4">
+        <div className="space-y-4 print:space-y-0 print:m-0 print:p-0">
           <div className="no-print flex items-center justify-between bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-xs sm:text-sm text-emerald-900 font-medium">
             <span>
               {printBlank
@@ -442,7 +442,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
             </div>
           </div>
 
-          <div className="print-only-container overflow-x-auto pb-8">
+          <div className="print-only-container overflow-x-auto pb-8 print:p-0 print:m-0 print:pb-0 print:overflow-visible">
             <AdmissionFormPrintView
               member={formData}
               org={org}
@@ -974,8 +974,8 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
               <span>{t.section4Title}</span>
             </h3>
 
-            <div className="bg-emerald-50/70 p-3 rounded-lg text-xs sm:text-sm text-slate-800 leading-relaxed">
-              {t.declarationText}
+            <div className="bg-emerald-50/70 p-3 rounded-lg text-xs sm:text-sm text-slate-800 leading-relaxed text-justify">
+              {org.declarationBn || t.declarationText}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

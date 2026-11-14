@@ -15,7 +15,8 @@ import {
   Key, 
   UserCheck, 
   FileText,
-  Printer
+  Printer,
+  Settings
 } from 'lucide-react';
 import { CollectionReceipt, Language, MemberApplication, OrganizationProfile } from '../types';
 import { TRANSLATIONS } from '../data/translations';
@@ -35,6 +36,7 @@ interface AdminPanelProps {
   onDeleteReceipt: (id: string) => void;
   onReloadAllData: () => void;
   onUpdateAdminPin?: (pin: string) => void;
+  onOpenSettings?: () => void;
   isUnlocked?: boolean;
   onUnlock?: () => void;
   onLock?: () => void;
@@ -51,6 +53,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteReceipt,
   onReloadAllData,
   onUpdateAdminPin,
+  onOpenSettings,
   isUnlocked: controlledIsUnlocked,
   onUnlock,
   onLock,
@@ -234,6 +237,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-teal-50 text-teal-900 border border-teal-300 hover:bg-teal-100 cursor-pointer"
+                title="প্রতিষ্ঠান তথ্য ও অঙ্গীকারনামা সম্পাদনা"
+              >
+                <Settings className="w-3.5 h-3.5 text-teal-700" />
+                <span>{isBn ? 'অঙ্গীকারনামা ও প্রতিষ্ঠান' : 'Declaration & Settings'}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setActiveTab('backup')}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-800 text-white hover:bg-emerald-900 cursor-pointer shadow-xs"
@@ -651,6 +665,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </form>
           </div>
+
+          {/* Organization Profile & Declaration Quick Access */}
+          {onOpenSettings && (
+            <div className="md:col-span-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 p-6 rounded-2xl border border-emerald-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-emerald-800" />
+                  <h3 className="text-base font-bold text-slate-900">
+                    {isBn ? 'সংগঠনের তথ্য ও ভর্তি ফরমের অঙ্গীকারনামা' : 'Organization Profile & Declaration'}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                  {isBn 
+                    ? 'ভর্তি ফরমের অঙ্গীকারনামা (Declaration Text), সংগঠনের নাম, লোগো, ঠিকানা ও মোবাইল নম্বর যেকোনো সময় পরিবর্তন করতে পারবেন।'
+                    : 'Edit admission form declaration text, organization name, official logo, address, and contact numbers.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs transition-colors cursor-pointer shrink-0 flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span>{isBn ? 'অঙ্গীকারনামা ও সেটিংস সম্পাদনা' : 'Edit Declaration & Info'}</span>
+              </button>
+            </div>
+          )}
 
         </div>
       )}

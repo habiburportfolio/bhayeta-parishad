@@ -10,6 +10,8 @@ export interface OrganizationProfile {
   phones: string[];
   email: string;
   logoUrl: string;
+  declarationBn?: string;
+  declarationEn?: string;
 }
 
 export interface MemberApplication {

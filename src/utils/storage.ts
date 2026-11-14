@@ -8,6 +8,9 @@ const PAD_DOCS_STORAGE_KEY = 'bhayeta_pad_docs';
 const PIN_STORAGE_KEY = 'bhayeta_admin_pin';
 const LANG_STORAGE_KEY = 'bhayeta_lang_preference';
 
+export const DEFAULT_DECLARATION_BN = "আমি এই মর্মে অঙ্গীকার করছি যে, ভায়েটা আদর্শ গ্রাম জনকল্যাণ পরিষদ'-এর নিয়ম-কানুন, গঠনতন্ত্র ও লক্ষ্য-উদ্দেশ্য যথাযথভাবে মেনে চলব । গ্রামের শিক্ষা, সমাজকল্যাণ, ইসলামিক মূল্যবোধ ও সামাজিক উন্নয়নে সক্রিয় অংশগ্রহণ করব এবং আমার নির্বাচিত মাসিক চাঁদা নিয়মিত পরিষদ তহবিলে প্রদান করব । আমার প্রদত্ত সকল তথ্য সত্য ও নির্ভুল ।";
+export const DEFAULT_DECLARATION_EN = "I hereby pledge to abide by the rules, constitution, and objectives of the Bhayeta Adarsha Gram Janakallyan Parishad, actively participate in village welfare, education, Islamic and social development, and regularly contribute my chosen monthly subscription to the parishad fund. All information provided by me is true and accurate.";
+
 export const DEFAULT_ORG_PROFILE: OrganizationProfile = {
   nameBn: 'ভায়েটা আদর্শ গ্রাম জনকল্যাণ পরিষদ',
   nameEn: 'BHAYETA ADARSHA GRAM JANAKALLYAN PARISHAD',
@@ -18,6 +21,8 @@ export const DEFAULT_ORG_PROFILE: OrganizationProfile = {
   phones: ['০১৫৫২-৬৩৮০০৬', '০১৭২৬-৮৭৭৯২৬', '০১৭১৬-৮৩৬৯২১'],
   email: 'bhayetagjp@gmail.com',
   logoUrl: '',
+  declarationBn: DEFAULT_DECLARATION_BN,
+  declarationEn: DEFAULT_DECLARATION_EN,
 };
 
 export const getOrgProfile = (): OrganizationProfile => {
