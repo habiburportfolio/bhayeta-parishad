@@ -83,7 +83,7 @@ export const AdmissionFormPrintView: React.FC<AdmissionFormPrintViewProps> = ({
         {/* Form Meta Row: Form No & Date */}
         <div className="flex items-center justify-between text-xs sm:text-sm print:text-xs font-semibold text-slate-800 mt-2.5 print:mt-1.5 px-2">
           <div>
-            <span>{isBn ? 'ফরম নং :' : 'Form No :'} </span>
+            <span>{isBn ? 'অনলাইন ফরম নং :' : 'Online Form No :'} </span>
             <span className="font-bold border-b border-dotted border-slate-600 px-2 min-w-[70px] inline-block text-center">
               {isBlank ? '' : (isBn ? toBengaliDigits(member.formNo) : member.formNo)}
             </span>
@@ -401,24 +401,35 @@ export const AdmissionFormPrintView: React.FC<AdmissionFormPrintViewProps> = ({
         </div>
 
         {/* 3 Signatures */}
-        <div className="grid grid-cols-3 gap-4 print:gap-3 pt-8 print:pt-6 text-center text-xs sm:text-sm print:text-xs">
+        <div className="grid grid-cols-3 gap-4 print:gap-3 pt-3 print:pt-2 text-center text-xs sm:text-sm print:text-xs">
           <div>
-            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[26px] print:min-h-[20px]">
+            <div className="h-8 print:h-7 mb-0.5"></div>
+            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[24px] print:min-h-[18px]">
               {val(member.proposerNameAndId)}
             </div>
             <div className="text-slate-700 font-medium">{isBn ? 'প্রস্তাবকের স্বাক্ষর ও আইডি' : 'Proposer Sign & ID'}</div>
           </div>
 
           <div>
-            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[26px] print:min-h-[20px]">
+            <div className="h-8 print:h-7 mb-0.5"></div>
+            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[24px] print:min-h-[18px]">
               {val(member.supporterNameAndId)}
             </div>
             <div className="text-slate-700 font-medium">{isBn ? 'সমর্থকের স্বাক্ষর ও আইডি' : 'Supporter Sign & ID'}</div>
           </div>
 
           <div>
-            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[26px] print:min-h-[20px]">
-              {val(member.applicantSignatureDate)}
+            <div className="h-8 print:h-7 flex items-end justify-center mb-0.5">
+              {!isBlank && member.applicantSignatureUrl ? (
+                <img 
+                  src={member.applicantSignatureUrl} 
+                  alt="Applicant Sign" 
+                  className="max-h-8 print:max-h-7 max-w-[120px] object-contain" 
+                />
+              ) : null}
+            </div>
+            <div className="border-t border-slate-700 font-semibold pt-1 min-h-[24px] print:min-h-[18px]">
+              {val(member.applicantSignatureDate ? (isBn ? toBengaliDigits(member.applicantSignatureDate) : member.applicantSignatureDate) : '')}
             </div>
             <div className="text-slate-700 font-medium">{isBn ? 'আবেদনকারীর স্বাক্ষর ও তারিখ' : 'Applicant Sign & Date'}</div>
           </div>

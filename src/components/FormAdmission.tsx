@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Printer, 
   Save, 
@@ -14,22 +14,39 @@ import { MemberApplication, OrganizationProfile, Language } from '../types';
 import { BANGLADESH_DIVISIONS } from '../data/bangladeshData';
 import { TRANSLATIONS } from '../data/translations';
 import { AdmissionFormPrintView } from './AdmissionFormPrintView';
-import { getAmountInWords, toBengaliDigits } from '../utils/numberToWords';
+import { getAmountInWords, toBengaliDigits, toEnglishDigits } from '../utils/numberToWords';
 import { exportMemberToDoc, triggerPrint } from '../utils/exportTools';
+
+export const getNextFormNo = (list?: MemberApplication[]): string => {
+  if (!list || list.length === 0) return '0001';
+  const nums = list
+    .map((m) => {
+      const en = toEnglishDigits(m.formNo || '');
+      const parsed = parseInt(en.replace(/\D/g, ''), 10);
+      return parsed;
+    })
+    .filter((n) => !isNaN(n) && n > 0);
+  const max = nums.length > 0 ? Math.max(...nums) : 0;
+  return String(max + 1).padStart(4, '0');
+};
 
 interface FormAdmissionProps {
   org: OrganizationProfile;
   lang: Language;
+  existingMembers?: MemberApplication[];
   onSaveMember: (member: MemberApplication) => void;
 }
 
 export const FormAdmission: React.FC<FormAdmissionProps> = ({
   org,
   lang,
+  existingMembers = [],
   onSaveMember,
 }) => {
+  const isBn = lang === 'bn';
   const t = TRANSLATIONS[lang];
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   // View mode: 'interactive' or 'replica'
   const [viewMode, setViewMode] = useState<'interactive' | 'replica'>('interactive');
@@ -39,7 +56,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
   // Form State
   const initialMember: MemberApplication = {
     id: `mem_${Date.now()}`,
-    formNo: '০১০২',
+    formNo: getNextFormNo(existingMembers),
     date: new Date().toISOString().slice(0, 10),
     photoUrl: '',
     fullNameBn: '',
@@ -76,6 +93,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
     proposerNameAndId: '',
     supporterNameAndId: '',
     applicantSignatureDate: new Date().toISOString().slice(0, 10),
+    applicantSignatureUrl: '',
     status: 'pending',
     memberIdNo: '',
     admissionFee: '১০০',
@@ -87,6 +105,14 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   const [formData, setFormData] = useState<MemberApplication>(initialMember);
 
+  // Sync formNo when existing members load or change
+  useEffect(() => {
+    if (existingMembers && existingMembers.length > 0 && !formData.fullNameBn && !formData.fullNameEn) {
+      const nextNo = getNextFormNo(existingMembers);
+      setFormData((prev) => ({ ...prev, formNo: nextNo }));
+    }
+  }, [existingMembers]);
+
   // Handle Photo Upload
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,6 +123,27 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Handle Applicant Signature Upload
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert(lang === 'bn' ? 'স্বাক্ষরের ছবির সাইজ সর্বোচ্চ ২MB হতে হবে' : 'Signature image size must be under 2MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData((prev) => ({ ...prev, applicantSignatureUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveSignature = () => {
+    setFormData((prev) => ({ ...prev, applicantSignatureUrl: '' }));
+    if (signatureInputRef.current) signatureInputRef.current.value = '';
   };
 
   // Handle monthly fee change
@@ -203,9 +250,43 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   // Save member
   const handleSave = () => {
+    if (!formData.fullNameBn.trim() && !formData.fullNameEn.trim()) {
+      alert(lang === 'bn' ? 'অনুগ্রহ করে আবেদনকারীর নাম লিখুন' : 'Please enter applicant name');
+      return;
+    }
     onSaveMember(formData);
     setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 3000);
+    setTimeout(() => setSavedToast(false), 3500);
+
+    // Prepare next serial number
+    const updatedList = [...(existingMembers || []), formData];
+    const nextNo = getNextFormNo(updatedList);
+    setFormData({
+      ...initialMember,
+      id: `mem_${Date.now()}`,
+      formNo: nextNo,
+      date: new Date().toISOString().slice(0, 10),
+      applicantSignatureDate: new Date().toISOString().slice(0, 10),
+      applicantSignatureUrl: '',
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (signatureInputRef.current) signatureInputRef.current.value = '';
+  };
+
+  const handleReset = () => {
+    if (window.confirm(lang === 'bn' ? 'আপনি কি ফর্ম রিসেট করতে চান?' : 'Are you sure you want to reset the form?')) {
+      const nextNo = getNextFormNo(existingMembers);
+      setFormData({
+        ...initialMember,
+        id: `mem_${Date.now()}`,
+        formNo: nextNo,
+        date: new Date().toISOString().slice(0, 10),
+        applicantSignatureDate: new Date().toISOString().slice(0, 10),
+        applicantSignatureUrl: '',
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (signatureInputRef.current) signatureInputRef.current.value = '';
+    }
   };
 
   // Print helper
@@ -385,13 +466,18 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
           {/* Form Meta: Form No & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">{t.formNo}</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isBn ? 'অনলাইন ফরম নং' : 'Online Form No'}
+                <span className="text-[10px] text-emerald-700 font-semibold ml-1.5 bg-emerald-100/70 px-1.5 py-0.5 rounded border border-emerald-300">
+                  {isBn ? 'স্বয়ংক্রিয় ক্রমানুসারে' : 'Auto Generated'}
+                </span>
+              </label>
               <input
                 type="text"
                 value={formData.formNo}
                 onChange={(e) => setFormData({ ...formData, formNo: e.target.value })}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm font-semibold"
-                placeholder="যেমন: ০১০১"
+                className="w-full px-3 py-2 bg-white border border-emerald-400 focus:border-emerald-600 rounded-md text-sm font-bold text-emerald-950 font-sans tracking-wider shadow-2xs"
+                placeholder="0001"
               />
             </div>
             <div>
@@ -863,12 +949,63 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">{t.applicantSignAndDate}</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {isBn ? 'আবেদনকারীর স্বাক্ষর ও তারিখ' : "Applicant's Signature & Date"}
+                </label>
+
+                {/* Signature Upload & Preview Box */}
+                <div className="border border-slate-300 rounded-md p-2 bg-slate-50 mb-2">
+                  {formData.applicantSignatureUrl ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-10 px-2 py-0.5 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden">
+                        <img 
+                          src={formData.applicantSignatureUrl} 
+                          alt="Signature Preview" 
+                          className="max-h-full max-w-full object-contain" 
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => signatureInputRef.current?.click()}
+                          className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                        >
+                          {isBn ? 'পরিবর্তন' : 'Change'}
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={handleRemoveSignature}
+                          className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                        >
+                          {isBn ? 'মুছুন' : 'Remove'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => signatureInputRef.current?.click()}
+                      className="w-full py-1.5 px-3 bg-white hover:bg-emerald-50 border border-dashed border-emerald-600 rounded text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>{isBn ? 'স্বাক্ষর আপলোড করুন' : 'Upload Signature Image'}</span>
+                    </button>
+                  )}
+                  <input
+                    ref={signatureInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSignatureUpload}
+                    className="hidden"
+                  />
+                </div>
+
                 <input
                   type="text"
                   value={formData.applicantSignatureDate}
                   onChange={(e) => setFormData({ ...formData, applicantSignatureDate: e.target.value })}
-                  placeholder="স্বাক্ষর ও তারিখ"
+                  placeholder="তারিখ (YYYY-MM-DD)"
                   className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm font-sans"
                 />
               </div>
@@ -933,7 +1070,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => setFormData(initialMember)}
+              onClick={handleReset}
               className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-4 h-4 text-slate-500" />

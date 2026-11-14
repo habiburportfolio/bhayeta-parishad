@@ -59,6 +59,7 @@ export interface MemberApplication {
   proposerNameAndId: string;
   supporterNameAndId: string;
   applicantSignatureDate: string;
+  applicantSignatureUrl?: string;
 
   // Section 5: Office Use Only
   status: 'pending' | 'approved' | 'rejected';

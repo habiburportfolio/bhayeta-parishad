@@ -23,8 +23,8 @@ const escapeHtml = (val: any): string => {
 // Export members to Excel (CSV with UTF-8 BOM for perfect Bengali text in Excel/Sheets)
 export const exportMembersToExcel = (members: MemberApplication[], lang: Language) => {
   const headers = lang === 'bn' 
-    ? ['আইডি নং', 'ফরম নং', 'আবেদনকারীর নাম (বাংলা)', 'Name (English)', 'পিতার নাম', 'মাতার নাম', 'মোবাইল', 'রক্তের গ্রুপ', 'পেশা', 'সদস্যপদ ধরন', 'মাসিক চাঁদা', 'বর্তমান ঠিকানা', 'স্থায়ী ঠিকানা', 'স্ট্যাটাস', 'তারিখ']
-    : ['Member ID', 'Form No', 'Name (Bengali)', 'Name (English)', "Father's Name", "Mother's Name", 'Mobile', 'Blood Group', 'Occupation', 'Membership Type', 'Monthly Fee', 'Present Address', 'Permanent Address', 'Status', 'Date'];
+    ? ['আইডি নং', 'অনলাইন ফরম নং', 'আবেদনকারীর নাম (বাংলা)', 'Name (English)', 'পিতার নাম', 'মাতার নাম', 'মোবাইল', 'রক্তের গ্রুপ', 'পেশা', 'সদস্যপদ ধরন', 'মাসিক চাঁদা', 'বর্তমান ঠিকানা', 'স্থায়ী ঠিকানা', 'স্ট্যাটাস', 'তারিখ']
+    : ['Member ID', 'Online Form No', 'Name (Bengali)', 'Name (English)', "Father's Name", "Mother's Name", 'Mobile', 'Blood Group', 'Occupation', 'Membership Type', 'Monthly Fee', 'Present Address', 'Permanent Address', 'Status', 'Date'];
 
   const rows = members.map((m) => {
     const presentAddr = m.presentAddress 
@@ -131,7 +131,7 @@ export const exportMemberToDoc = (member: MemberApplication, org: OrganizationPr
         <div class="subtitle">${escapeHtml(org.nameEn)}</div>
         <div class="info">${escapeHtml(org.establishedBn)} | ${escapeHtml(org.addressBn)} | মোবাইল: ${escapeHtml(org.phones.join(', '))}</div>
         <h2 style="color: #006837; margin-top: 10px;">${isBn ? 'সদস্য ভর্তি আবেদন ফরম' : 'Member Admission Application Form'}</h2>
-        <p><strong>${isBn ? 'ফরম নং' : 'Form No'}:</strong> ${escapeHtml(member.formNo)} | <strong>${isBn ? 'তারিখ' : 'Date'}:</strong> ${escapeHtml(member.date)}</p>
+        <p><strong>${isBn ? 'অনলাইন ফরম নং' : 'Online Form No'}:</strong> ${escapeHtml(member.formNo)} | <strong>${isBn ? 'তারিখ' : 'Date'}:</strong> ${escapeHtml(member.date)}</p>
       </div>
 
       <div class="section-title">${isBn ? '১. আবেদনকারীর ব্যক্তিগত তথ্যাবলী' : "1. Personal Information"}</div>
@@ -173,6 +173,15 @@ export const exportMemberToDoc = (member: MemberApplication, org: OrganizationPr
         <strong>${isBn ? 'অঙ্গীকারনামা' : 'Declaration'}:</strong>
         <p style="margin: 5px 0 0;">${isBn ? "আমি এই মর্মে অঙ্গীকার করছি যে, ভায়েটা আদর্শ গ্রাম জনকল্যাণ পরিষদ-এর নিয়ম-কানুন, গঠনতন্ত্র ও লক্ষ্য-উদ্দেশ্য যথাযথভাবে মেনে চলব । গ্রামের শিক্ষা, সমাজকল্যাণ, ইসলামিক মূল্যবোধ ও সামাজিক উন্নয়নে সক্রিয় অংশগ্রহণ করব এবং আমার নির্বাচিত মাসিক চাঁদা নিয়মিত পরিষদ তহবিলে প্রদান করব ।" : "I pledge to abide by the rules and objectives of the parishad and contribute regularly."}</p>
       </div>
+
+      ${member.applicantSignatureUrl ? `
+      <div style="margin-top: 20px; text-align: right;">
+        <img src="${member.applicantSignatureUrl}" style="max-height: 40px; display: inline-block;" /><br/>
+        <span style="font-size: 10pt; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; display: inline-block;">${isBn ? 'আবেদনকারীর স্বাক্ষর ও তারিখ' : 'Applicant Sign & Date'}: ${escapeHtml(member.applicantSignatureDate || '')}</span>
+      </div>` : `
+      <div style="margin-top: 30px; text-align: right;">
+        <span style="font-size: 10pt; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; display: inline-block;">${isBn ? 'আবেদনকারীর স্বাক্ষর ও তারিখ' : 'Applicant Sign & Date'}: ${escapeHtml(member.applicantSignatureDate || '')}</span>
+      </div>`}
 
       <div class="footer">
         ${escapeHtml(org.addressBn)} | E-mail: ${escapeHtml(org.email)}

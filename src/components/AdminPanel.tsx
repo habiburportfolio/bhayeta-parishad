@@ -332,7 +332,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <thead className="bg-slate-50 text-slate-600 uppercase text-[11px] font-bold border-b border-slate-200">
                 <tr>
                   <th className="px-3 py-3">ছবি ও নাম</th>
-                  <th className="px-3 py-3">আইডি / ফরম নং</th>
+                  <th className="px-3 py-3">{isBn ? 'আইডি / অনলাইন ফরম নং' : 'ID / Online Form No'}</th>
                   <th className="px-3 py-3">মোবাইল</th>
                   <th className="px-3 py-3">ঠিকানা</th>
                   <th className="px-3 py-3">সদস্যপদ ও চাঁদা</th>

@@ -23,7 +23,7 @@ export const TRANSLATIONS = {
     modePrintReplica: '১:১ হুবহু পেপার প্রিভিউ',
     printBlankForm: 'খালি ফর্ম প্রিন্ট',
     printFilledForm: 'পূরণকৃত ফর্ম প্রিন্ট',
-    formNo: 'ফরম নং',
+    formNo: 'অনলাইন ফরম নং',
     formDate: 'তারিখ',
     bismillah: "বিস্মিহী তা'আলা",
     
@@ -183,7 +183,7 @@ export const TRANSLATIONS = {
     modePrintReplica: '1:1 Paper Replica Preview',
     printBlankForm: 'Print Blank Form',
     printFilledForm: 'Print Filled Form',
-    formNo: 'Form No',
+    formNo: 'Online Form No',
     formDate: 'Date',
     bismillah: "Bismillahi Ta'ala",
 

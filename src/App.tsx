@@ -220,6 +220,7 @@ export default function App() {
           <FormAdmission
             org={org}
             lang={lang}
+            existingMembers={members}
             onSaveMember={handleSaveMember}
           />
         )}
