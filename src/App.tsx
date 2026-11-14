@@ -33,7 +33,10 @@ import {
   syncPadDocToCloud,
   deletePadDocFromCloud,
   fetchCloudOrgProfile,
-  syncOrgProfileToCloud
+  syncOrgProfileToCloud,
+  saveAdminPin,
+  fetchCloudAdminPin,
+  syncAdminPinToCloud
 } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { FormAdmission } from './components/FormAdmission';
@@ -153,15 +156,23 @@ export default function App() {
     syncOrgProfileToCloud(updatedOrg);
   };
 
+  // Admin PIN handler (Local + Cloud Sync)
+  const handleUpdateAdminPin = (newPin: string) => {
+    setAdminPin(newPin);
+    saveAdminPin(newPin);
+    syncAdminPinToCloud(newPin);
+  };
+
   // Initial cloud sync
   useEffect(() => {
     const syncFromCloud = async () => {
       try {
-        const [cloudMembers, cloudReceipts, cloudPadDocs, cloudOrg] = await Promise.all([
+        const [cloudMembers, cloudReceipts, cloudPadDocs, cloudOrg, cloudPin] = await Promise.all([
           fetchCloudMembers(),
           fetchCloudReceipts(),
           fetchCloudPadDocs(),
           fetchCloudOrgProfile(),
+          fetchCloudAdminPin(),
         ]);
 
         if (cloudMembers && cloudMembers.length > 0) {
@@ -179,6 +190,10 @@ export default function App() {
         if (cloudOrg) {
           setOrg(cloudOrg);
           saveOrgProfile(cloudOrg);
+        }
+        if (cloudPin) {
+          setAdminPin(cloudPin);
+          saveAdminPin(cloudPin);
         }
       } catch (err) {
         console.warn('Initial cloud sync error:', err);
@@ -245,7 +260,7 @@ export default function App() {
               onDeleteMember={handleDeleteMember}
               onDeleteReceipt={handleDeleteReceipt}
               onReloadAllData={reloadAllData}
-              onUpdateAdminPin={setAdminPin}
+              onUpdateAdminPin={handleUpdateAdminPin}
               isUnlocked={false}
               onUnlock={() => setIsAdminUnlocked(true)}
               onLock={() => {
@@ -276,7 +291,7 @@ export default function App() {
               onDeleteMember={handleDeleteMember}
               onDeleteReceipt={handleDeleteReceipt}
               onReloadAllData={reloadAllData}
-              onUpdateAdminPin={setAdminPin}
+              onUpdateAdminPin={handleUpdateAdminPin}
               isUnlocked={false}
               onUnlock={() => setIsAdminUnlocked(true)}
               onLock={() => {
@@ -298,7 +313,7 @@ export default function App() {
             onDeleteMember={handleDeleteMember}
             onDeleteReceipt={handleDeleteReceipt}
             onReloadAllData={reloadAllData}
-            onUpdateAdminPin={setAdminPin}
+            onUpdateAdminPin={handleUpdateAdminPin}
             isUnlocked={isAdminUnlocked}
             onUnlock={() => setIsAdminUnlocked(true)}
             onLock={() => {

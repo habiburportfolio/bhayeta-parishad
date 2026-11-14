@@ -417,3 +417,38 @@ export const syncOrgProfileToCloud = async (profile: OrganizationProfile): Promi
     return false;
   }
 };
+
+export const fetchCloudAdminPin = async (): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('org_profile')
+      .select('data')
+      .eq('id', 'admin_security')
+      .single();
+
+    if (error) return null;
+    if (data && data.data && data.data.pin) {
+      return String(data.data.pin);
+    }
+  } catch (err) {
+    console.warn('Supabase fetch admin pin error:', err);
+  }
+  return null;
+};
+
+export const syncAdminPinToCloud = async (newPin: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('org_profile').upsert({
+      id: 'admin_security',
+      data: { pin: newPin, updatedAt: Date.now() },
+    });
+    if (error) {
+      console.warn('Supabase save pin error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Supabase save pin network error:', err);
+    return false;
+  }
+};

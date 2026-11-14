@@ -242,6 +242,17 @@ export const OrgSettingsModal: React.FC<OrgSettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Admin Security PIN Notice */}
+          <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-800">{isBn ? 'অ্যাডমিন পিন / পাসওয়ার্ড সুরক্ষা' : 'Admin Security PIN'}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{isBn ? 'অ্যাডমিন প্যানেলের "পাসওয়ার্ড পরিবর্তন" ট্যাব থেকে যেকোনো সময় পিন কোড পরিবর্তন ও ক্লাউড সিঙ্ক করতে পারবেন।' : 'You can change and sync PIN anytime from Admin Panel > Security.'}</p>
+            </div>
+            <span className="text-xs font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-300 shrink-0 ml-2">
+              {isBn ? 'সক্রিয়' : 'Active'}
+            </span>
+          </div>
+
           {/* Toast */}
           {savedMsg && (
             <div className="bg-emerald-50 text-emerald-800 p-2.5 rounded-lg flex items-center gap-2 text-xs font-semibold">

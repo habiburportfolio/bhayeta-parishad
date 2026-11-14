@@ -9,6 +9,7 @@ import {
   Clock, 
   Trash2, 
   Eye, 
+  EyeOff, 
   Download, 
   Upload, 
   Key, 
@@ -73,7 +74,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [selectedMemberForModal, setSelectedMemberForModal] = useState<MemberApplication | null>(null);
 
   // Pin change
+  const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pinErrorMsg, setPinErrorMsg] = useState('');
   const [pinChangedMsg, setPinChangedMsg] = useState('');
 
   // Unlock check
@@ -91,13 +96,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Change PIN
   const handleChangePin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin.length >= 4) {
-      saveAdminPin(newPin);
-      onUpdateAdminPin?.(newPin);
-      setPinChangedMsg(t.pinChangedSuccess);
-      setNewPin('');
-      setTimeout(() => setPinChangedMsg(''), 3000);
+    setPinErrorMsg('');
+    setPinChangedMsg('');
+
+    if (currentPinInput !== adminPin) {
+      setPinErrorMsg(isBn ? 'বর্তমান পিন কোডটি সঠিক নয়!' : 'Current PIN does not match!');
+      return;
     }
+    if (newPin.length < 4) {
+      setPinErrorMsg(isBn ? 'নতুন পিন কোড কমপক্ষে ৪ ডিজিটের হতে হবে!' : 'New PIN must be at least 4 digits!');
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setPinErrorMsg(isBn ? 'নতুন পিন ও কনফার্ম পিন মেলেনি!' : 'New PIN and confirm PIN do not match!');
+      return;
+    }
+
+    saveAdminPin(newPin);
+    onUpdateAdminPin?.(newPin);
+    setPinChangedMsg(isBn ? '✓ অ্যাডমিন পিন সফলভাবে পরিবর্তন ও ক্লাউডে সংরক্ষিত হয়েছে!' : '✓ Admin PIN updated and saved to cloud successfully!');
+    setCurrentPinInput('');
+    setNewPin('');
+    setConfirmPin('');
+    setTimeout(() => setPinChangedMsg(''), 5000);
   };
 
   // Status toggle
@@ -212,7 +233,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab('backup')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-800 text-white hover:bg-emerald-900 cursor-pointer shadow-xs"
+            >
+              <Key className="w-3.5 h-3.5 text-emerald-200" />
+              <span>{isBn ? 'পাসওয়ার্ড পরিবর্তন' : 'Change PIN'}</span>
+            </button>
+
             <button
               onClick={() => exportMembersToExcel(members, lang)}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
@@ -279,7 +308,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {[
             { id: 'members', label: `${t.membersTab} (${members.length})` },
             { id: 'receipts', label: `${t.receiptsTab} (${receipts.length})` },
-            { id: 'backup', label: t.backupTab },
+            { id: 'backup', label: isBn ? '🔑 পাসওয়ার্ড পরিবর্তন ও ব্যাকআপ' : '🔑 Change PIN & Backup' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -532,37 +561,93 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Change PIN Code */}
+          {/* Change PIN / Password */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2">
               <Key className="w-5 h-5 text-emerald-700" />
-              <h3 className="text-base font-bold text-slate-900">{t.changePin}</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                {isBn ? 'অ্যাডমিন পিন / পাসওয়ার্ড পরিবর্তন' : 'Change Admin PIN / Password'}
+              </h3>
             </div>
-            <p className="text-xs text-slate-500">
-              {isBn ? 'অ্যাডমিন প্যানেল সুরক্ষার জন্য নতুন ৪ সংখ্যার পিন কোড সেট করুন।' : 'Set a new 4+ digit PIN for admin panel.'}
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {isBn 
+                ? 'অ্যাডমিন প্যানেল সুরক্ষিত রাখতে আপনার পছন্দমতো নতুন পাসওয়ার্ড বা ৪ সংখ্যার পিন কোড সেট করুন। এটি ক্লাউডে যুক্ত হয়ে সব ডিভাইসে আপডেট হয়ে যাবে।' 
+                : 'Set a new PIN or password to secure the admin panel across all your devices.'}
             </p>
 
-            <form onSubmit={handleChangePin} className="space-y-3">
+            <form onSubmit={handleChangePin} className="space-y-3.5">
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {isBn ? 'বর্তমান পিন কোড' : 'Current PIN'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    value={currentPinInput}
+                    onChange={(e) => setCurrentPinInput(e.target.value)}
+                    placeholder={isBn ? 'বর্তমান পিন (ডিফল্ট: 1234)' : 'Current PIN'}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {isBn ? 'নতুন পিন কোড / পাসওয়ার্ড' : 'New PIN / Password'}
+                </label>
                 <input
-                  type="password"
+                  type={showPin ? 'text' : 'password'}
                   value={newPin}
                   onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="নতুন পিন কোড দিন (যেমন: 2026)"
-                  maxLength={8}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  placeholder={isBn ? 'নতুন ৪+ ডিজিটের পিন (যেমন: 2026)' : 'New PIN (4+ digits)'}
+                  minLength={4}
+                  maxLength={12}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {isBn ? 'নতুন পিন পুনরায় নিশ্চিত করুন' : 'Confirm New PIN'}
+                </label>
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value)}
+                  placeholder={isBn ? 'নতুন পিন আবার লিখুন' : 'Re-enter new PIN'}
+                  minLength={4}
+                  maxLength={12}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
+                />
+              </div>
+
+              {pinErrorMsg && (
+                <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-semibold">
+                  {pinErrorMsg}
+                </div>
+              )}
+
               {pinChangedMsg && (
-                <p className="text-xs text-emerald-700 font-semibold">{pinChangedMsg}</p>
+                <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs font-bold">
+                  {pinChangedMsg}
+                </div>
               )}
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
               >
-                {t.changePin}
+                {isBn ? 'পাসওয়ার্ড সংরক্ষণ ও ক্লাউড সিঙ্ক করুন' : 'Save & Sync Password'}
               </button>
             </form>
           </div>
