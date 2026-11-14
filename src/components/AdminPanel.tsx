@@ -16,14 +16,35 @@ import {
   UserCheck, 
   FileText,
   Printer,
-  Settings
+  Settings,
+  ShieldCheck,
+  Smartphone,
+  Mail,
+  KeyRound,
+  Copy,
+  Check,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { CollectionReceipt, Language, MemberApplication, OrganizationProfile } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { exportMembersToExcel, exportMemberToDoc, triggerPrint } from '../utils/exportTools';
 import { toBengaliDigits } from '../utils/numberToWords';
-import { exportEntireDatabase, restoreEntireDatabase, saveAdminPin } from '../utils/storage';
+import { 
+  exportEntireDatabase, 
+  restoreEntireDatabase, 
+  saveAdminPin, 
+  getAdminSecurity, 
+  saveAdminSecurity, 
+  generateSecurityOtp, 
+  verifySecurityOtp, 
+  recordFailedAttempt, 
+  resetFailedAttempts, 
+  getLockoutStatus, 
+  syncAdminSecurityToCloud 
+} from '../utils/storage';
 import { AdmissionFormPrintView } from './AdmissionFormPrintView';
+import { AdminResetPasswordModal } from './AdminResetPasswordModal';
 
 interface AdminPanelProps {
   members: MemberApplication[];
@@ -76,28 +97,123 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all');
   const [selectedMemberForModal, setSelectedMemberForModal] = useState<MemberApplication | null>(null);
 
-  // Pin change
+  // Security & Reset modal
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const [securityProfile, setSecurityProfile] = useState(getAdminSecurity());
+
+  // In-tab PIN change OTP state
   const [currentPinInput, setCurrentPinInput] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [showPin, setShowPin] = useState(false);
+  const [changePinMethod, setChangePinMethod] = useState<'mobile' | 'email'>('mobile');
+  const [changePinOtp, setChangePinOtp] = useState('');
+  const [isSendingChangeOtp, setIsSendingChangeOtp] = useState(false);
+  const [changeOtpTimer, setChangeOtpTimer] = useState(0);
+  const [changeOtpNotice, setChangeOtpNotice] = useState('');
   const [pinErrorMsg, setPinErrorMsg] = useState('');
   const [pinChangedMsg, setPinChangedMsg] = useState('');
+  const [copiedMasterKey, setCopiedMasterKey] = useState(false);
 
-  // Unlock check
+  // Recovery contacts editing
+  const [editRecoveryEmail, setEditRecoveryEmail] = useState(securityProfile.recoveryEmail || org.email);
+  const [editRecoveryPhone, setEditRecoveryPhone] = useState(securityProfile.recoveryPhone || org.phones[0]);
+  const [recoveryContactsSavedMsg, setRecoveryContactsSavedMsg] = useState('');
+
+  // Check lockout on mount
+  useEffect(() => {
+    const status = getLockoutStatus();
+    if (status.isLocked) {
+      setLockoutSeconds(status.remainingSeconds);
+    }
+  }, []);
+
+  // Countdown for lockout
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          resetFailedAttempts();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
+
+  // Countdown for in-tab OTP
+  useEffect(() => {
+    if (changeOtpTimer <= 0) return;
+    const interval = setInterval(() => {
+      setChangeOtpTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [changeOtpTimer]);
+
+  // Unlock check with Brute-Force Rate Limiting
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
+    const status = getLockoutStatus();
+    if (status.isLocked) {
+      setPinError(
+        isBn 
+          ? `⚠️ অতিরিক্ত ভুল চেষ্টার কারণে প্যানেল সাময়িকভাবে লক রয়েছে। ${toBengaliDigits(status.remainingSeconds)} সেকেন্ড অপেক্ষা করুন।`
+          : `⚠️ Temporarily locked due to too many failed attempts. Please wait ${status.remainingSeconds}s.`
+      );
+      return;
+    }
+
     if (pinInput === adminPin) {
+      resetFailedAttempts();
       setInternalUnlocked(true);
       onUnlock?.();
       setPinError('');
     } else {
-      setPinError(t.wrongPin);
+      const result = recordFailedAttempt();
+      if (result.isLocked) {
+        setLockoutSeconds(300);
+        setPinError(
+          isBn 
+            ? '⚠️ ৫ বার ভুল পিন দেওয়ার কারণে অ্যাডমিন প্যানেল ৫ মিনিটের জন্য লক করা হয়েছে। পাসওয়ার্ড ভুলে গেলে নিচে "রিসেট করুন" বাটনে ক্লিক করুন।'
+            : '⚠️ 5 failed attempts. Admin panel locked for 5 minutes. If forgotten, click Reset below.'
+        );
+      } else {
+        setPinError(
+          isBn 
+            ? `ভুল পিন কোড! আর ${toBengaliDigits(result.attemptsLeft)} বার চেষ্টা করা যাবে।`
+            : `Incorrect PIN! ${result.attemptsLeft} attempts remaining.`
+        );
+      }
     }
   };
 
-  // Change PIN
-  const handleChangePin = (e: React.FormEvent) => {
+  // Send OTP for Change PIN
+  const handleSendChangePinOtp = async () => {
+    setIsSendingChangeOtp(true);
+    setPinErrorMsg('');
+    try {
+      const destination = changePinMethod === 'mobile' 
+        ? (securityProfile.recoveryPhone || org.phones[0]) 
+        : (securityProfile.recoveryEmail || org.email);
+      const session = await generateSecurityOtp(changePinMethod, destination);
+      setChangeOtpTimer(300);
+      setChangeOtpNotice(
+        isBn 
+          ? `✓ আপনার নিবন্ধিত ${changePinMethod === 'mobile' ? 'মোবাইলে' : 'ই-মেইলে'} ৬ ডিজিটের ওটিপি পাঠানো হয়েছে (কোড: ${toBengaliDigits(session.code)})` 
+          : `✓ 6-digit OTP sent to your registered ${changePinMethod} (Code: ${session.code})`
+      );
+    } catch {
+      setPinErrorMsg(isBn ? 'ওটিপি কোড পাঠাতে সমস্যা হয়েছে।' : 'Failed to send OTP code.');
+    } finally {
+      setIsSendingChangeOtp(false);
+    }
+  };
+
+  // Change PIN with Mandatory OTP Verification
+  const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
     setPinErrorMsg('');
     setPinChangedMsg('');
@@ -115,13 +231,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
+    // MANDATORY OTP VERIFICATION
+    if (!changePinOtp.trim()) {
+      setPinErrorMsg(isBn ? 'পাসওয়ার্ড পরিবর্তনের জন্য মোবাইল বা ইমেইল ভেরিফিকেশন কোড (OTP) প্রদান আবশ্যক!' : 'OTP verification is mandatory to change password!');
+      return;
+    }
+
+    if (!verifySecurityOtp(changePinOtp)) {
+      setPinErrorMsg(isBn ? 'ভুল বা মেয়াদোত্তীর্ণ ওটিপি কোড! অনুগ্রহ করে নতুন কোড নিয়ে চেষ্টা করুন।' : 'Invalid or expired OTP code! Please try again.');
+      return;
+    }
+
     saveAdminPin(newPin);
+    await syncAdminPinToCloud(newPin);
     onUpdateAdminPin?.(newPin);
-    setPinChangedMsg(isBn ? '✓ অ্যাডমিন পিন সফলভাবে পরিবর্তন ও ক্লাউডে সংরক্ষিত হয়েছে!' : '✓ Admin PIN updated and saved to cloud successfully!');
+    setPinChangedMsg(isBn ? '✓ মোবাইল/ইমেইল যাচাই সম্পন্ন! অ্যাডমিন পাসওয়ার্ড সফলভাবে পরিবর্তন ও ক্লাউডে সিঙ্ক হয়েছে।' : '✓ Verified! Admin password successfully updated and synced to cloud.');
     setCurrentPinInput('');
     setNewPin('');
     setConfirmPin('');
-    setTimeout(() => setPinChangedMsg(''), 5000);
+    setChangePinOtp('');
+    setChangeOtpNotice('');
+    setTimeout(() => setPinChangedMsg(''), 6000);
+  };
+
+  // Save Recovery Contacts
+  const handleSaveRecoveryContacts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = {
+      ...securityProfile,
+      recoveryEmail: editRecoveryEmail.trim(),
+      recoveryPhone: editRecoveryPhone.trim(),
+    };
+    saveAdminSecurity(updated);
+    setSecurityProfile(updated);
+    await syncAdminSecurityToCloud(updated);
+    setRecoveryContactsSavedMsg(isBn ? '✓ রিকভারি মোবাইল ও ইমেইল সফলভাবে সংরক্ষিত হয়েছে!' : '✓ Recovery contacts updated successfully!');
+    setTimeout(() => setRecoveryContactsSavedMsg(''), 4000);
   };
 
   // Status toggle
@@ -187,33 +332,72 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <p className="text-xs text-slate-500 mt-1">{t.adminPinPrompt}</p>
           </div>
 
+          {lockoutSeconds > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold flex items-center justify-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>
+                {isBn 
+                  ? `অতিরিক্ত ভুল চেষ্টার কারণে সাময়িকভাবে লক। অপেক্ষা করুন: ${toBengaliDigits(lockoutSeconds)} সেকেন্ড` 
+                  : `Temporarily locked. Retry in: ${lockoutSeconds}s`}
+              </span>
+            </div>
+          )}
+
           <form onSubmit={handleUnlock} className="space-y-4">
             <div>
               <input
                 type="password"
-                maxLength={8}
+                maxLength={16}
                 value={pinInput}
+                disabled={lockoutSeconds > 0}
                 onChange={(e) => setPinInput(e.target.value)}
                 placeholder={t.adminPinPlaceholder}
-                className="w-full text-center px-4 py-3 text-lg font-bold tracking-widest border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-center px-4 py-3 text-lg font-bold tracking-widest border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed font-sans"
                 autoFocus
               />
-              {pinError && <p className="text-xs text-red-600 mt-1.5 font-medium">{pinError}</p>}
+              {pinError && <p className="text-xs text-red-600 mt-1.5 font-medium leading-relaxed">{pinError}</p>}
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
+              disabled={lockoutSeconds > 0}
+              className="w-full py-3 bg-emerald-800 hover:bg-emerald-900 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
             >
               <Unlock className="w-4 h-4" />
               <span>{t.unlockAdmin}</span>
             </button>
           </form>
 
-          <p className="text-[11px] text-slate-400">
-            {isBn ? 'ডিফল্ট পিন কোড: 1234' : 'Default PIN: 1234'}
-          </p>
+          {/* Forgot Password / Reset Trigger */}
+          <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsResetModalOpen(true)}
+              className="text-xs font-bold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer flex items-center gap-1.5"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>{isBn ? 'পাসওয়ার্ড ভুলে গেছেন? রিসেট করুন' : 'Forgot Password? Reset Here'}</span>
+            </button>
+            <p className="text-[10.5px] text-slate-400">
+              {isBn 
+                ? 'সুরক্ষা নিশ্চিত করতে মোবাইল/ইমেইল ওটিপি এবং ব্রুট-ফোর্স প্রটেকশন সক্রিয়।' 
+                : 'Secured with 2-Factor OTP Verification & Brute-Force Rate Limiting.'}
+            </p>
+          </div>
         </div>
+
+        <AdminResetPasswordModal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          org={org}
+          lang={lang}
+          onSuccess={(newP) => {
+            onUpdateAdminPin?.(newP);
+            setPinInput(newP);
+            setInternalUnlocked(true);
+            onUnlock?.();
+          }}
+        />
       </div>
     );
   }
@@ -575,18 +759,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Change PIN / Password */}
+          {/* Change PIN / Password with 2FA Mobile/Email Verification */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-2">
-              <Key className="w-5 h-5 text-emerald-700" />
-              <h3 className="text-base font-bold text-slate-900">
-                {isBn ? 'অ্যাডমিন পিন / পাসওয়ার্ড পরিবর্তন' : 'Change Admin PIN / Password'}
-              </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-emerald-700" />
+                <h3 className="text-base font-bold text-slate-900">
+                  {isBn ? 'পাসওয়ার্ড পরিবর্তন (ওটিপি যাচাই বাধ্যতামূলক)' : 'Change PIN (Mandatory 2FA OTP)'}
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md border border-emerald-200">
+                {isBn ? '২-স্তরীয় সুরক্ষা' : '2-Factor Security'}
+              </span>
             </div>
+            
             <p className="text-xs text-slate-500 leading-relaxed">
               {isBn 
-                ? 'অ্যাডমিন প্যানেল সুরক্ষিত রাখতে আপনার পছন্দমতো নতুন পাসওয়ার্ড বা ৪ সংখ্যার পিন কোড সেট করুন। এটি ক্লাউডে যুক্ত হয়ে সব ডিভাইসে আপডেট হয়ে যাবে।' 
-                : 'Set a new PIN or password to secure the admin panel across all your devices.'}
+                ? 'যেকোনো ধরনের অননুমোদিত অ্যাক্সেস ঠেকাতে পাসওয়ার্ড পরিবর্তনের সময় আপনার নিবন্ধিত মোবাইল বা ইমেইলে প্রেরিত ওটিপি যাচাই করা বাধ্যতামূলক।' 
+                : 'To prevent unauthorized changes, password modification strictly requires 6-digit OTP verification via your registered contact.'}
             </p>
 
             <form onSubmit={handleChangePin} className="space-y-3.5">
@@ -599,7 +789,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     type={showPin ? 'text' : 'password'}
                     value={currentPinInput}
                     onChange={(e) => setCurrentPinInput(e.target.value)}
-                    placeholder={isBn ? 'বর্তমান পিন (ডিফল্ট: 1234)' : 'Current PIN'}
+                    placeholder={isBn ? 'বর্তমান পিন লিখুন' : 'Enter current PIN'}
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
                   />
@@ -613,36 +803,106 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {isBn ? 'নতুন পিন কোড / পাসওয়ার্ড' : 'New PIN / Password'}
-                </label>
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder={isBn ? 'নতুন ৪+ ডিজিটের পিন (যেমন: 2026)' : 'New PIN (4+ digits)'}
-                  minLength={4}
-                  maxLength={12}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    {isBn ? 'নতুন পাসওয়ার্ড / পিন' : 'New PIN'}
+                  </label>
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value)}
+                    placeholder={isBn ? 'নতুন ৪+ ডিজিটের পিন' : 'New PIN (4+ digits)'}
+                    minLength={4}
+                    maxLength={16}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    {isBn ? 'নতুন পিন পুনরায় নিশ্চিত করুন' : 'Confirm New PIN'}
+                  </label>
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value)}
+                    placeholder={isBn ? 'নতুন পিন আবার লিখুন' : 'Re-enter new PIN'}
+                    minLength={4}
+                    maxLength={16}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {isBn ? 'নতুন পিন পুনরায় নিশ্চিত করুন' : 'Confirm New PIN'}
-                </label>
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
-                  placeholder={isBn ? 'নতুন পিন আবার লিখুন' : 'Re-enter new PIN'}
-                  minLength={4}
-                  maxLength={12}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-sans"
-                />
+              {/* Mandatory OTP Verification Section */}
+              <div className="pt-3 border-t border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span>{isBn ? 'যাচাইকরণ মাধ্যম ও ওটিপি (OTP)' : 'Verification Channel & OTP'}</span>
+                  </div>
+                  {changeOtpTimer > 0 && (
+                    <span className="text-emerald-700 font-mono font-bold">
+                      ⏱ {isBn ? toBengaliDigits(changeOtpTimer) : changeOtpTimer}s
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-medium">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="changePinChannel"
+                      checked={changePinMethod === 'mobile'}
+                      onChange={() => setChangePinMethod('mobile')}
+                      className="accent-emerald-700"
+                    />
+                    <span>{isBn ? 'মোবাইল (SMS/OTP)' : 'Mobile (SMS)'}</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="changePinChannel"
+                      checked={changePinMethod === 'email'}
+                      onChange={() => setChangePinMethod('email')}
+                      className="accent-emerald-700"
+                    />
+                    <span>{isBn ? 'ই-মেইল' : 'Email'}</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={changePinOtp}
+                    onChange={(e) => setChangePinOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="৬ ডিজিটের ওটিপি কোড"
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono tracking-widest text-center"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendChangePinOtp}
+                    disabled={isSendingChangeOtp || changeOtpTimer > 0}
+                    className="px-3.5 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-lg text-xs transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                  >
+                    {isSendingChangeOtp ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Smartphone className="w-3.5 h-3.5" />}
+                    <span>
+                      {changeOtpTimer > 0 
+                        ? (isBn ? 'কোড পাঠানো হয়েছে' : 'Code Sent') 
+                        : (isBn ? 'ওটিপি কোড পাঠান' : 'Send OTP')}
+                    </span>
+                  </button>
+                </div>
+
+                {changeOtpNotice && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[11.5px] text-emerald-900 font-medium">
+                    {changeOtpNotice}
+                  </div>
+                )}
               </div>
 
               {pinErrorMsg && (
@@ -659,9 +919,92 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
               >
-                {isBn ? 'পাসওয়ার্ড সংরক্ষণ ও ক্লাউড সিঙ্ক করুন' : 'Save & Sync Password'}
+                <Lock className="w-4 h-4" />
+                <span>{isBn ? 'যাচাই সম্পন্ন করে পাসওয়ার্ড সংরক্ষণ করুন' : 'Verify & Save New Password'}</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Master Recovery Key & Security Contacts */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-amber-700" />
+              <h3 className="text-base font-bold text-slate-900">
+                {isBn ? 'মাস্টার সিকিউরিটি রিকভারি কি (জরুরি ব্যাকআপ)' : 'Master Security Recovery Key'}
+              </h3>
+            </div>
+            
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {isBn 
+                ? 'যদি কখনো মোবাইল বা ইমেইল অ্যাক্সেস হারিয়ে ফেলেন, তবে এই ১৬ সংখ্যার গোপন মাস্টার কি ব্যবহার করে তাৎক্ষণিক পাসওয়ার্ড রিসেট করা যাবে। এটি নিরাপদ কোথাও লিখে বা কপি করে রাখুন।' 
+                : 'Emergency 16-character master key to bypass OTP and reset password if your phone or email is lost.'}
+            </p>
+
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-center justify-between gap-2">
+              <span className="font-mono text-sm sm:text-base font-extrabold text-amber-950 tracking-wider">
+                {securityProfile.masterRecoveryKey}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(securityProfile.masterRecoveryKey);
+                  setCopiedMasterKey(true);
+                  setTimeout(() => setCopiedMasterKey(false), 2000);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-amber-300 text-amber-900 text-xs font-bold rounded-lg hover:bg-amber-100 transition-colors cursor-pointer shadow-2xs shrink-0"
+              >
+                {copiedMasterKey ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-amber-800" />}
+                <span>{copiedMasterKey ? (isBn ? 'কপি হয়েছে' : 'Copied') : (isBn ? 'কপি করুন' : 'Copy Key')}</span>
+              </button>
+            </div>
+
+            {/* Recovery Contacts Form */}
+            <form onSubmit={handleSaveRecoveryContacts} className="pt-3 border-t border-slate-200 space-y-3">
+              <p className="text-xs font-bold text-slate-800">
+                {isBn ? 'ভেরিফিকেশন কন্টাক্ট নম্বর ও ইমেইল' : 'Registered Recovery Contacts'}
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    {isBn ? 'রিকভারি মোবাইল নম্বর' : 'Recovery Mobile'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editRecoveryPhone}
+                    onChange={(e) => setEditRecoveryPhone(e.target.value)}
+                    required
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-mono font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                    {isBn ? 'রিকভারি ই-মেইল' : 'Recovery Email'}
+                  </label>
+                  <input
+                    type="email"
+                    value={editRecoveryEmail}
+                    onChange={(e) => setEditRecoveryEmail(e.target.value)}
+                    required
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-sans font-medium"
+                  />
+                </div>
+              </div>
+
+              {recoveryContactsSavedMsg && (
+                <div className="p-2 bg-emerald-50 text-emerald-800 text-xs font-semibold rounded-lg">
+                  {recoveryContactsSavedMsg}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs cursor-pointer shadow-2xs"
+              >
+                {isBn ? 'কন্টাক্ট তথ্য আপডেট করুন' : 'Update Contacts'}
               </button>
             </form>
           </div>

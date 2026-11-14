@@ -1,4 +1,4 @@
-import { CollectionReceipt, MemberApplication, OrganizationProfile, PadDocument } from '../types';
+import { AdminSecurityProfile, CollectionReceipt, MemberApplication, OrganizationProfile, PadDocument, SecurityOtpSession } from '../types';
 import { supabase } from './supabase';
 
 const ORG_STORAGE_KEY = 'bhayeta_org_profile';
@@ -423,7 +423,49 @@ export const syncOrgProfileToCloud = async (profile: OrganizationProfile): Promi
   }
 };
 
-export const fetchCloudAdminPin = async (): Promise<string | null> => {
+const SECURITY_STORAGE_KEY = 'bhayeta_admin_security';
+const OTP_SESSION_KEY = 'bhayeta_active_otp';
+
+export const generateMasterKey = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seg = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `BHYT-${seg()}-${seg()}-${seg()}`;
+};
+
+export const getAdminSecurity = (): AdminSecurityProfile => {
+  try {
+    const raw = localStorage.getItem(SECURITY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!parsed.masterRecoveryKey) {
+        parsed.masterRecoveryKey = generateMasterKey();
+        saveAdminSecurity(parsed);
+      }
+      return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse admin security', e);
+  }
+
+  const defaultSecurity: AdminSecurityProfile = {
+    pin: localStorage.getItem(PIN_STORAGE_KEY) || '1234',
+    recoveryEmail: DEFAULT_ORG_PROFILE.email,
+    recoveryPhone: DEFAULT_ORG_PROFILE.phones[0],
+    masterRecoveryKey: generateMasterKey(),
+    failedAttempts: 0,
+    lockedUntil: null,
+    lastChangedAt: new Date().toISOString(),
+  };
+  saveAdminSecurity(defaultSecurity);
+  return defaultSecurity;
+};
+
+export const saveAdminSecurity = (sec: AdminSecurityProfile): void => {
+  localStorage.setItem(SECURITY_STORAGE_KEY, JSON.stringify(sec));
+  localStorage.setItem(PIN_STORAGE_KEY, sec.pin);
+};
+
+export const fetchCloudAdminSecurity = async (): Promise<AdminSecurityProfile | null> => {
   try {
     const { data, error } = await supabase
       .from('org_profile')
@@ -431,29 +473,164 @@ export const fetchCloudAdminPin = async (): Promise<string | null> => {
       .eq('id', 'admin_security')
       .single();
 
-    if (error) return null;
-    if (data && data.data && data.data.pin) {
-      return String(data.data.pin);
-    }
+    if (error || !data?.data) return null;
+    const cloud = data.data;
+    const current = getAdminSecurity();
+    const merged: AdminSecurityProfile = {
+      pin: cloud.pin ? String(cloud.pin) : current.pin,
+      recoveryEmail: cloud.recoveryEmail || current.recoveryEmail,
+      recoveryPhone: cloud.recoveryPhone || current.recoveryPhone,
+      masterRecoveryKey: cloud.masterRecoveryKey || current.masterRecoveryKey,
+      failedAttempts: current.failedAttempts,
+      lockedUntil: current.lockedUntil,
+      lastChangedAt: cloud.lastChangedAt || current.lastChangedAt,
+    };
+    saveAdminSecurity(merged);
+    return merged;
   } catch (err) {
-    console.warn('Supabase fetch admin pin error:', err);
+    console.warn('Supabase fetch admin security error:', err);
+    return null;
   }
-  return null;
 };
 
-export const syncAdminPinToCloud = async (newPin: string): Promise<boolean> => {
+export const syncAdminSecurityToCloud = async (sec: AdminSecurityProfile): Promise<boolean> => {
   try {
     const { error } = await supabase.from('org_profile').upsert({
       id: 'admin_security',
-      data: { pin: newPin, updatedAt: Date.now() },
+      data: {
+        pin: sec.pin,
+        recoveryEmail: sec.recoveryEmail,
+        recoveryPhone: sec.recoveryPhone,
+        masterRecoveryKey: sec.masterRecoveryKey,
+        lastChangedAt: sec.lastChangedAt || new Date().toISOString(),
+        updatedAt: Date.now(),
+      },
     });
     if (error) {
-      console.warn('Supabase save pin error:', error.message);
+      console.warn('Supabase save security error:', error.message);
       return false;
     }
     return true;
   } catch (err) {
-    console.warn('Supabase save pin network error:', err);
+    console.warn('Supabase save security network error:', err);
     return false;
   }
+};
+
+export const generateSecurityOtp = async (
+  target: 'email' | 'mobile',
+  destination: string
+): Promise<SecurityOtpSession> => {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const session: SecurityOtpSession = {
+    code,
+    target,
+    destination,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes validity
+    verified: false,
+  };
+
+  localStorage.setItem(OTP_SESSION_KEY, JSON.stringify(session));
+
+  try {
+    await supabase.from('org_profile').upsert({
+      id: 'admin_pending_otp',
+      data: {
+        code,
+        target,
+        destination,
+        expiresAt: session.expiresAt,
+        createdAt: Date.now(),
+      },
+    });
+  } catch (e) {
+    console.warn('Failed to sync OTP to cloud:', e);
+  }
+
+  return session;
+};
+
+export const getActiveSecurityOtp = (): SecurityOtpSession | null => {
+  try {
+    const raw = localStorage.getItem(OTP_SESSION_KEY);
+    if (!raw) return null;
+    const session: SecurityOtpSession = JSON.parse(raw);
+    if (Date.now() > session.expiresAt) {
+      localStorage.removeItem(OTP_SESSION_KEY);
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+};
+
+export const verifySecurityOtp = (enteredCode: string): boolean => {
+  const active = getActiveSecurityOtp();
+  if (!active) return false;
+  if (active.code.trim() === enteredCode.trim() && Date.now() <= active.expiresAt) {
+    localStorage.removeItem(OTP_SESSION_KEY);
+    supabase.from('org_profile').delete().eq('id', 'admin_pending_otp').then();
+    return true;
+  }
+  return false;
+};
+
+export const verifyMasterRecoveryKey = (keyInput: string): boolean => {
+  const sec = getAdminSecurity();
+  const normalize = (k: string) => k.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  return normalize(keyInput) === normalize(sec.masterRecoveryKey);
+};
+
+export const recordFailedAttempt = (): { isLocked: boolean; remainingSeconds: number; attemptsLeft: number } => {
+  const sec = getAdminSecurity();
+  sec.failedAttempts = (sec.failedAttempts || 0) + 1;
+  let isLocked = false;
+  let remainingSeconds = 0;
+
+  if (sec.failedAttempts >= 5) {
+    sec.lockedUntil = Date.now() + 5 * 60 * 1000; // Lock for 5 minutes
+    isLocked = true;
+    remainingSeconds = 300;
+  }
+  saveAdminSecurity(sec);
+  return {
+    isLocked,
+    remainingSeconds,
+    attemptsLeft: Math.max(0, 5 - sec.failedAttempts),
+  };
+};
+
+export const resetFailedAttempts = (): void => {
+  const sec = getAdminSecurity();
+  sec.failedAttempts = 0;
+  sec.lockedUntil = null;
+  saveAdminSecurity(sec);
+};
+
+export const getLockoutStatus = (): { isLocked: boolean; remainingSeconds: number } => {
+  const sec = getAdminSecurity();
+  if (sec.lockedUntil && sec.lockedUntil > Date.now()) {
+    return {
+      isLocked: true,
+      remainingSeconds: Math.ceil((sec.lockedUntil - Date.now()) / 1000),
+    };
+  }
+  if (sec.lockedUntil && sec.lockedUntil <= Date.now()) {
+    resetFailedAttempts();
+  }
+  return { isLocked: false, remainingSeconds: 0 };
+};
+
+export const fetchCloudAdminPin = async (): Promise<string | null> => {
+  const sec = await fetchCloudAdminSecurity();
+  return sec?.pin || null;
+};
+
+export const syncAdminPinToCloud = async (newPin: string): Promise<boolean> => {
+  const sec = getAdminSecurity();
+  sec.pin = newPin;
+  sec.lastChangedAt = new Date().toISOString();
+  saveAdminSecurity(sec);
+  return syncAdminSecurityToCloud(sec);
 };

@@ -100,6 +100,24 @@ export interface PadDocument {
   updatedAt: number;
 }
 
+export interface AdminSecurityProfile {
+  pin: string;
+  recoveryEmail: string;
+  recoveryPhone: string;
+  masterRecoveryKey: string;
+  failedAttempts: number;
+  lockedUntil: number | null;
+  lastChangedAt?: string;
+}
+
+export interface SecurityOtpSession {
+  code: string;
+  target: 'email' | 'mobile';
+  destination: string;
+  expiresAt: number;
+  verified: boolean;
+}
+
 export interface DivisionData {
   id: string;
   nameBn: string;

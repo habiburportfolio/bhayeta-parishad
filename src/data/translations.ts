@@ -130,8 +130,8 @@ export const TRANSLATIONS = {
 
     // Admin Panel
     adminTitle: 'অ্যাডমিন ও রেকর্ড ব্যবস্থাপনা',
-    adminPinPrompt: 'অ্যাডমিন পিন কোড দিন',
-    adminPinPlaceholder: '৪ ডিজিটের পিন (ডিফল্ট: 1234)',
+    adminPinPrompt: 'নিরাপত্তা পিন কোড বা পাসওয়ার্ড দিন',
+    adminPinPlaceholder: 'গোপন পিন কোড বা পাসওয়ার্ড লিখুন',
     unlockAdmin: 'আনলক করুন',
     changePin: 'পিন পরিবর্তন',
     membersTab: 'সদস্য তালিকা',
@@ -290,8 +290,8 @@ export const TRANSLATIONS = {
 
     // Admin Panel
     adminTitle: 'Admin & Records Management',
-    adminPinPrompt: 'Enter Admin PIN',
-    adminPinPlaceholder: '4-digit PIN (default: 1234)',
+    adminPinPrompt: 'Enter Security PIN or Password',
+    adminPinPlaceholder: 'Enter secret PIN / Password',
     unlockAdmin: 'Unlock Admin',
     changePin: 'Change PIN',
     membersTab: 'Member Roster',
