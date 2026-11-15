@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
   Lock, 
@@ -34,6 +34,7 @@ import {
   exportEntireDatabase, 
   restoreEntireDatabase, 
   saveAdminPin, 
+  syncAdminPinToCloud,
   getAdminSecurity, 
   saveAdminSecurity, 
   generateSecurityOtp, 
@@ -1076,6 +1077,101 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 lang={lang}
                 isBlank={false}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Member Directory List (Prints cleanly when quick print is triggered from Admin Panel) */}
+      {!selectedMemberForModal && isUnlocked && (
+        <div className="hidden print:block print:w-full print:m-0 print:p-6 print:text-black font-serif">
+          {/* Header */}
+          <div className="text-center pb-4 border-b-2 border-emerald-800 mb-4">
+            <h1 className="text-xl font-bold text-emerald-950">
+              {org.nameBn}
+            </h1>
+            <p className="text-xs text-slate-700">
+              {org.addressBn} | মোবাইল: {Array.isArray(org.phones) ? org.phones.join(', ') : ''}
+            </p>
+            <div className="inline-block px-3 py-1 bg-slate-100 border border-slate-400 rounded-md text-xs font-bold mt-2">
+              {activeTab === 'receipts' ? 'আদায় রশিদ বহি রেজিস্টার' : 'সাধারণ ও আজীবন সদস্য তালিকা (Member Directory)'}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              প্রিন্ট তারিখ: {new Date().toLocaleDateString('bn-BD')} | মোট: {toBengaliDigits(activeTab === 'receipts' ? receipts.length : members.length)} টি
+            </p>
+          </div>
+
+          {activeTab === 'receipts' ? (
+            /* Printable Receipts Table */
+            <table className="w-full text-xs border-collapse border border-slate-400">
+              <thead>
+                <tr className="bg-slate-100 text-slate-900 border-b border-slate-400">
+                  <th className="border border-slate-400 px-2 py-1 text-center">রশিদ নং</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center">তারিখ</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">প্রদানকারীর নাম</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">ঠিকানা</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">বিবরণ</th>
+                  <th className="border border-slate-400 px-2 py-1 text-right">পরিমাণ (টাকা)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.map((r, idx) => (
+                  <tr key={r.id || idx} className="border-b border-slate-300">
+                    <td className="border border-slate-300 px-2 py-1 text-center font-bold">{toBengaliDigits(r.serialNo)}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center font-sans">{r.date}</td>
+                    <td className="border border-slate-300 px-2 py-1 font-semibold">{r.payerName}</td>
+                    <td className="border border-slate-300 px-2 py-1">{r.address}</td>
+                    <td className="border border-slate-300 px-2 py-1">{r.purpose}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-right font-bold">{toBengaliDigits(r.amount)}/-</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            /* Printable Members Table */
+            <table className="w-full text-xs border-collapse border border-slate-400">
+              <thead>
+                <tr className="bg-slate-100 text-slate-900 border-b border-slate-400">
+                  <th className="border border-slate-400 px-2 py-1 text-center w-10">ক্র.</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center w-16">ফরম নং</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">সদস্যের নাম</th>
+                  <th className="border border-slate-400 px-2 py-1 text-left">পিতা/স্বামীর নাম</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center">মোবাইল নম্বর</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center">সদস্য পদ</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center">সদস্য আইডি</th>
+                  <th className="border border-slate-400 px-2 py-1 text-center">স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m, idx) => (
+                  <tr key={m.id || idx} className="border-b border-slate-300">
+                    <td className="border border-slate-300 px-2 py-1 text-center font-bold">{toBengaliDigits(idx + 1)}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center font-bold">{toBengaliDigits(m.formNo)}</td>
+                    <td className="border border-slate-300 px-2 py-1 font-semibold">
+                      {m.fullNameBn || m.fullNameEn}
+                    </td>
+                    <td className="border border-slate-300 px-2 py-1">{m.fatherName || '-'}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center font-sans">{m.primaryMobile || '-'}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center">
+                      {m.membershipType === 'lifetime' ? 'আজীবন' : m.membershipType === 'donor' ? 'দাতা' : 'সাধারণ'}
+                    </td>
+                    <td className="border border-slate-300 px-2 py-1 text-center font-sans font-bold">{m.memberIdNo || '-'}</td>
+                    <td className="border border-slate-300 px-2 py-1 text-center">
+                      {m.status === 'approved' ? 'অনুমোদিত' : 'বিবেচনাধীন'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* Signatures at bottom */}
+          <div className="pt-12 flex justify-between items-center text-xs text-slate-800">
+            <div className="text-center">
+              <div className="w-36 border-t border-slate-500 pt-1">সাধারণ সম্পাদক</div>
+            </div>
+            <div className="text-center">
+              <div className="w-36 border-t border-slate-500 pt-1">সভাপতি</div>
             </div>
           </div>
         </div>

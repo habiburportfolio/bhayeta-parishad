@@ -50,13 +50,13 @@ export const ReceiptBook: React.FC<ReceiptBookProps> = ({
     id: `rcpt_${Date.now()}`,
     serialNo: nextSl,
     date: new Date().toISOString().slice(0, 10),
-    payerName: 'মোহাম্মদ হাবিবুর রহমান',
-    address: 'গ্রাম: ভায়েটা, গালা, টাঙ্গাইল সদর',
-    amount: 500,
-    amountInWordsBn: 'পাঁচশত টাকা মাত্র',
-    amountInWordsEn: 'Five Hundred Taka Only',
-    purpose: 'আজীবন সদস্য ভর্তি ও মাসিক চাঁদা',
-    receivedBy: 'কোষাধ্যক্ষ / সভাপতি',
+    payerName: '',
+    address: org.addressBn || 'গ্রাম: ভায়েটা, গালা, টাঙ্গাইল সদর',
+    amount: 100,
+    amountInWordsBn: 'একশত টাকা মাত্র',
+    amountInWordsEn: 'One Hundred Taka Only',
+    purpose: 'মাসিক সাধারণ চাঁদা',
+    receivedBy: 'কোষাধ্যক্ষ / সাধারণ সম্পাদক',
     paymentMethod: 'cash',
     createdAt: Date.now(),
   });
@@ -93,12 +93,12 @@ export const ReceiptBook: React.FC<ReceiptBookProps> = ({
       serialNo: newSl,
       date: new Date().toISOString().slice(0, 10),
       payerName: '',
-      address: 'গ্রাম: ভায়েটা, গালা, টাঙ্গাইল সদর',
+      address: org.addressBn || 'গ্রাম: ভায়েটা, গালা, টাঙ্গাইল সদর',
       amount: 100,
       amountInWordsBn: 'একশত টাকা মাত্র',
       amountInWordsEn: 'One Hundred Taka Only',
       purpose: 'মাসিক সাধারণ চাঁদা',
-      receivedBy: '',
+      receivedBy: 'কোষাধ্যক্ষ / সাধারণ সম্পাদক',
       paymentMethod: 'cash',
       createdAt: Date.now(),
     });
@@ -212,7 +212,7 @@ export const ReceiptBook: React.FC<ReceiptBookProps> = ({
         </div>
       ) : (
         /* Form Editor Mode */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
+        <div className="no-print bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-200">
             <div>
               <h2 className="text-lg font-bold text-slate-900">{t.receiptBookTitle}</h2>
@@ -322,6 +322,18 @@ export const ReceiptBook: React.FC<ReceiptBookProps> = ({
               {t.saveData}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Hidden print container for form editor mode */}
+      {viewMode === 'form' && (
+        <div className="hidden print:block print:w-full print:m-0 print:p-0">
+          <ReceiptPrintView
+            receipt={currentReceipt}
+            org={org}
+            lang={lang}
+            isBlank={false}
+          />
         </div>
       )}
 

@@ -36,12 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'admin' as const, label: t.navAdmin, icon: Shield, adminOnly: true },
   ];
 
-  const handleTabClick = (tabId: 'form' | 'receipt' | 'pad' | 'admin', adminOnly: boolean) => {
-    if (adminOnly && !isAdminUnlocked) {
-      setCurrentTab('admin');
-    } else {
-      setCurrentTab(tabId);
-    }
+  const handleTabClick = (tabId: 'form' | 'receipt' | 'pad' | 'admin') => {
+    setCurrentTab(tabId);
   };
 
   return (
@@ -77,7 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleTabClick(item.id, item.adminOnly)}
+                  onClick={() => handleTabClick(item.id)}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'bg-emerald-800 text-white shadow-xs'
@@ -171,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => {
-                    handleTabClick(item.id, item.adminOnly);
+                    handleTabClick(item.id);
                     setMobileMenuOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${

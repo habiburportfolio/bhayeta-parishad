@@ -33,6 +33,46 @@ export const getNextFormNo = (list?: MemberApplication[]): string => {
   return String(max + 1).padStart(4, '0');
 };
 
+const compressImageFile = (
+  file: File,
+  maxWidth: number,
+  maxHeight: number,
+  quality: number
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to parse image data'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          if (width / maxWidth > height / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 interface FormAdmissionProps {
   org: OrganizationProfile;
   lang: Language;
@@ -57,6 +97,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
   const [savedToast, setSavedToast] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedModalData, setSubmittedModalData] = useState<MemberApplication | null>(null);
+  const [hasSavedCurrentForm, setHasSavedCurrentForm] = useState(false);
 
   // Form State
   const initialMember: MemberApplication = {
@@ -112,37 +153,53 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   // Sync formNo when existing members load or change
   useEffect(() => {
-    if (existingMembers && existingMembers.length > 0 && !formData.fullNameBn && !formData.fullNameEn) {
+    if (existingMembers && existingMembers.length > 0 && !formData.fullNameBn && !formData.fullNameEn && !hasSavedCurrentForm) {
       const nextNo = getNextFormNo(existingMembers);
       setFormData((prev) => ({ ...prev, formNo: nextNo }));
     }
-  }, [existingMembers]);
+  }, [existingMembers, hasSavedCurrentForm]);
 
-  // Handle Photo Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo Upload with size validation and auto-compression
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, photoUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 5 * 1024 * 1024) {
+        alert(lang === 'bn' ? 'ছবির সাইজ সর্বোচ্চ ৫MB হতে হবে' : 'Photo size must be under 5MB');
+        return;
+      }
+      try {
+        const compressed = await compressImageFile(file, 600, 600, 0.82);
+        setFormData((prev) => ({ ...prev, photoUrl: compressed }));
+      } catch (err) {
+        console.error('Photo compression error:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData((prev) => ({ ...prev, photoUrl: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  // Handle Applicant Signature Upload
-  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Applicant Signature Upload with compression
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
         alert(lang === 'bn' ? 'স্বাক্ষরের ছবির সাইজ সর্বোচ্চ ২MB হতে হবে' : 'Signature image size must be under 2MB');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, applicantSignatureUrl: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 400, 200, 0.85);
+        setFormData((prev) => ({ ...prev, applicantSignatureUrl: compressed }));
+      } catch (err) {
+        console.error('Signature compression error:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData((prev) => ({ ...prev, applicantSignatureUrl: reader.result as string }));
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -288,6 +345,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
       // 4. Update local form and trigger confirmation popup
       setFormData(finalizedMember);
       setSubmittedModalData(finalizedMember);
+      setHasSavedCurrentForm(true);
       setSavedToast(true);
       setTimeout(() => setSavedToast(false), 4000);
     } catch (error) {
@@ -300,6 +358,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   const handleStartNewForm = () => {
     setSubmittedModalData(null);
+    setHasSavedCurrentForm(false);
     const updatedList = submittedModalData 
       ? [...(existingMembers || []), submittedModalData]
       : (existingMembers || []);
@@ -319,6 +378,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
 
   const handleReset = () => {
     if (window.confirm(lang === 'bn' ? 'আপনি কি ফর্ম রিসেট করতে চান?' : 'Are you sure you want to reset the form?')) {
+      setHasSavedCurrentForm(false);
       const nextNo = getNextFormNo(existingMembers);
       setFormData({
         ...initialMember,
@@ -1132,7 +1192,7 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
               <span>{t.resetForm}</span>
             </button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setViewMode('replica')}
@@ -1142,28 +1202,45 @@ export const FormAdmission: React.FC<FormAdmissionProps> = ({
                 <span>{t.modePrintReplica}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className={`flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
-                  isSubmitting
-                    ? 'bg-emerald-950 text-emerald-200 cursor-not-allowed opacity-90'
-                    : 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-md'
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
-                    <span>{isBn ? 'সিরিয়াল নির্ধারণ ও সংরক্ষণ হচ্ছে...' : 'Allocating Serial & Saving...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 text-emerald-200" />
-                    <span>{t.saveData}</span>
-                  </>
-                )}
-              </button>
+              {hasSavedCurrentForm ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold shadow-2xs">
+                    <CheckCircle className="w-4 h-4 text-emerald-700" />
+                    <span>{isBn ? `সংরক্ষিত (ফরম নং: ${toBengaliDigits(formData.formNo)})` : `Saved (Form: ${formData.formNo})`}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStartNewForm}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg bg-emerald-800 text-white hover:bg-emerald-900 shadow-md transition-all cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4 text-emerald-200" />
+                    <span>{isBn ? 'নতুন আবেদন শুরু করুন' : 'Start New Application'}</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSubmitting}
+                  className={`flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                    isSubmitting
+                      ? 'bg-emerald-950 text-emerald-200 cursor-not-allowed opacity-90'
+                      : 'bg-emerald-800 text-white hover:bg-emerald-900 shadow-md'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
+                      <span>{isBn ? 'সিরিয়াল নির্ধারণ ও সংরক্ষণ হচ্ছে...' : 'Allocating Serial & Saving...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-emerald-200" />
+                      <span>{t.saveData}</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 

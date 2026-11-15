@@ -232,7 +232,7 @@ export const PadKhata: React.FC<PadKhataProps> = ({
         </div>
       ) : (
         /* Pad Editor Mode */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-6">
+        <div className="no-print bg-white rounded-xl border border-slate-200 shadow-xs p-6 sm:p-8 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900">{t.padTitle}</h2>
@@ -341,6 +341,21 @@ export const PadKhata: React.FC<PadKhataProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Hidden print container for pad editor mode */}
+      {viewMode === 'editor' && (
+        <div className="hidden print:block print:w-full print:m-0 print:p-0">
+          <PadPrintView
+            memoNo={memoNo}
+            date={date}
+            subject={subject}
+            content={content}
+            org={org}
+            lang={lang}
+            isBlank={printBlank}
+          />
         </div>
       )}
 
